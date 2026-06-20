@@ -22,8 +22,8 @@
     "demo:runway": "NUDGET_DEMO=1 vitest run src/scripts/demoRunway.test.ts --reporter=basic"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.48.1",
-    "next": "15.1.6",
+    "@supabase/supabase-js": "2.108.2",
+    "next": "15.5.19",
     "plaid": "^42.2.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
@@ -33,11 +33,11 @@
     "@types/node": "22.10.7",
     "@types/react": "19.0.7",
     "@types/react-dom": "19.0.3",
-    "@vitest/coverage-v8": "2.1.8",
+    "@vitest/coverage-v8": "3.2.6",
     "eslint": "8.57.1",
-    "eslint-config-next": "15.1.6",
+    "eslint-config-next": "15.5.19",
     "prettier": "3.4.2",
     "typescript": "5.7.3",
-    "vitest": "2.1.8"
+    "vitest": "3.2.6"
   }
 }
