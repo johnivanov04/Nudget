@@ -1,20 +1,36 @@
 /**
- * POST /api/transactions/:id/ignore — exclude a transaction from daily spend.
+ * POST /api/transactions/:id/ignore — include/exclude a transaction from spend.
  *
- * TODO(phase-5): authenticate, verify the transaction belongs to the caller,
- * set `ignored=true` via transactionsRepo.setIgnored, and recompute the runway
- * snapshot. The ownership check is enforced in the repo (user_id guard) + RLS.
+ * Auth-gated and ownership-scoped (the repo guards on user_id; RLS backstops).
+ * Body `{ ignored?: boolean }` (defaults to true).
+ *
+ * TODO(phase-4): recompute + persist the runway snapshot after the change.
  */
 import type { NextRequest } from 'next/server';
-import { notImplemented, badRequest } from '@/lib/api/responses';
+import { getUserFromRequest } from '@/lib/api/auth';
+import { ignoreTransactionSchema } from '@/lib/api/schemas';
+import { transactionsRepo } from '@/lib/db/repositories';
+import { ok, badRequest, unauthorized } from '@/lib/api/responses';
 
-export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const user = await getUserFromRequest(req);
+  if (!user) return unauthorized();
+
   const { id } = await ctx.params;
   if (!id) return badRequest('Missing transaction id');
 
-  return notImplemented({
-    endpoint: 'POST /api/transactions/:id/ignore',
-    phase: 'Phase 5',
-    todo: `Mark transaction ${id} ignored (ownership-checked) and recompute the runway snapshot.`,
-  });
+  let body: unknown = {};
+  try {
+    const text = await req.text();
+    if (text) body = JSON.parse(text);
+  } catch {
+    return badRequest('Request body must be valid JSON');
+  }
+  const parsed = ignoreTransactionSchema.safeParse(body);
+  if (!parsed.success) {
+    return badRequest('Invalid ignore payload', parsed.error.flatten());
+  }
+
+  await transactionsRepo.setIgnored(user.userId, id, parsed.data.ignored);
+  return ok({ id, ignored: parsed.data.ignored });
 }

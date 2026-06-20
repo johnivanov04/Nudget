@@ -41,23 +41,30 @@ the API route skeleton (3 live endpoints + 11 documented stubs).
       exists; wire a `POST /api/onboarding/privacy` route when the iOS flow lands).
 - [ ] Wire **Sentry** (server) with payload scrubbing for financial data.
 
-## Phase 3 — Plaid + transaction sync (Roadmap Weeks 3, build order 3–4)
+## ✅ Phase 3 — Plaid + transaction sync (Roadmap Week 3, build order 3–4) (DONE)
 
 **Goal:** Sandbox end-to-end; transactions importing.
 
-- [ ] Add the `plaid` SDK; build a server-only Plaid client from validated env.
-- [ ] **`POST /api/plaid/link-token`** → `/link/token/create` (return only `link_token`).
-- [ ] **`POST /api/plaid/exchange-public-token`** → `/item/public_token/exchange`,
-      **encrypt** the access token (`tokenCrypto`), store via `plaidItemsRepo.create`,
-      fetch accounts.
-- [ ] **`POST /api/plaid/sync`** → cursor-based `/transactions/sync`: upsert
-      added/modified, delete removed, advance cursor **only on success**, update
-      `last_sync_at`. Retryable; queueable.
-- [ ] **`POST /api/plaid/webhook`** → **verify signature** before trusting payload,
-      then enqueue a sync on `SYNC_UPDATES_AVAILABLE`.
-- [ ] **`GET /api/transactions`** + **`POST /api/transactions/:id/ignore`** → `transactionsRepo`.
-- [ ] Integration tests: token exchange (mocked), cursor behavior, upsert/delete,
-      ownership checks, "tokens never returned to client / never logged".
+- [x] `plaid` SDK added; server-only client from validated env (`src/lib/plaid/client.ts`).
+- [x] **`POST /api/plaid/link-token`** → `/link/token/create` (returns only `link_token`).
+- [x] **`POST /api/plaid/exchange-public-token`** → exchange, **encrypt** + store the
+      access token via `plaidItemsRepo.create`, fetch + upsert accounts; response carries no token.
+- [x] **`POST /api/plaid/sync`** → cursor-based `/transactions/sync`: upsert added/modified,
+      delete removed, advance cursor **only on success**, update `last_sync_at` (`src/lib/plaid/sync.ts`).
+- [x] **`POST /api/plaid/webhook`** → **ES256 signature verification** (Node crypto,
+      `src/lib/plaid/webhook.ts`) before trusting payload; syncs on `SYNC_UPDATES_AVAILABLE`,
+      flags item on `ITEM/ERROR`.
+- [x] **`GET /api/transactions`** + **`POST /api/transactions/:id/ignore`** → `transactionsRepo`.
+- [x] Unit tests: mappers, cursor pagination + cursor-only-on-success, webhook verification
+      (tamper/replay/wrong-key/bad-alg), all routes (incl. token-never-returned). Integration:
+      `getOwned` / `getByPlaidItemId` lookups.
+
+**Carried forward:**
+
+- [ ] Move webhook-triggered sync onto a durable queue (Phase 8) so the webhook returns
+      immediately rather than syncing inline.
+- [ ] Live Plaid Sandbox end-to-end smoke test (needs real Plaid credentials; the suite
+      uses a mocked Plaid client).
 
 ## Phase 4 — Bill detection + runway persistence (Roadmap Weeks 6–7, build order 6–7)
 
@@ -130,15 +137,14 @@ money movement, multi-user/shared budgets, advanced category breakdowns.
 
 ## Suggested next prompt for Claude
 
-> Implement **Phase 3 (Plaid Sandbox + transaction sync)** for Nudget at `~/nudget`.
-> Add the `plaid` SDK and a server-only Plaid client built from validated env. Wire
-> `POST /api/plaid/link-token` (return only the link_token), `POST /api/plaid/exchange-public-token`
-> (exchange, **encrypt** the access token via `lib/crypto/tokenCrypto`, store via
-> `plaidItemsRepo.create`, fetch accounts), `POST /api/plaid/sync` (cursor-based
-> `/transactions/sync`: upsert added/modified, delete removed, advance cursor only on
-> success), and `POST /api/plaid/webhook` (verify signature, enqueue sync). Wire
-> `GET /api/transactions` and `POST /api/transactions/:id/ignore`. All endpoints
-> auth-gated and user-scoped. Add tests: unit tests for sync cursor/upsert/delete logic
-> with a mocked Plaid client, and integration tests for the new repositories paths.
-> Keep tokens server-side only and never logged; tests mandatory; do not build
-> iOS/WidgetKit/APNs yet.
+> Implement **Phase 4 (bill detection + runway persistence)** for Nudget at `~/nudget`.
+> Build a pure recurring-bill detection module (merchant normalization, cadence/amount/date
+> scoring → confidence) over a user's synced transactions, persisting candidates via
+> `recurringBillsRepo`. Wire `GET /api/bills/detected` and `POST /api/bills/:id/confirm`
+> (confirmed data overrides guesses). Replace `POST /api/runway/recalculate` and
+> `GET /api/runway/current`/`GET /api/widget/snapshot` so they load the user's accounts,
+> transactions, bills, and schedule from the DB (via the existing `db/mappers` + engine),
+> compute with `buildRunwaySnapshot`, and persist/read a `runway_snapshots` row. After an
+> ignore/confirm, recompute the snapshot. All endpoints auth-gated and user-scoped. Unit-test
+> the detection algorithm thoroughly + the DB-backed recompute (mocked repos); tests mandatory;
+> do not build iOS/WidgetKit/APNs yet.

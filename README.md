@@ -10,15 +10,15 @@ single, glanceable question using three numbers:
 - **Bills before payday**
 - **Safe to spend until payday**
 
-This repository is the **backend** (Phases 1–2 complete: foundation + auth/persistence).
-The iOS app (SwiftUI), the home/lock-screen widget (WidgetKit), and push nudges (APNs)
-come in later phases.
+This repository is the **backend** (Phases 1–3 complete: foundation · auth/persistence ·
+Plaid Sandbox + transaction sync). The iOS app (SwiftUI), the home/lock-screen widget
+(WidgetKit), and push nudges (APNs) come in later phases.
 
 ---
 
 ## Current phase status
 
-**Phase 1 — Backend foundation: complete. Phase 2 — Auth + persistence: complete.**
+**Phases 1–3 complete:** foundation · auth + persistence · Plaid Sandbox + transaction sync.
 
 | Area                                                                   | Status                            |
 | ---------------------------------------------------------------------- | --------------------------------- |
@@ -29,23 +29,32 @@ come in later phases.
 | Server-side types + per-table repositories                             | ✅                                |
 | Plaid access-token encryption (AES-256-GCM)                            | ✅                                |
 | Pure runway engine (payday, daily spend, classification, runway, risk) | ✅ unit-tested                    |
-| Seed/mock data + runnable demo                                         | ✅                                |
-| **Supabase Auth JWT verification + per-user scoping**                  | ✅ (Phase 2)                      |
-| **`GET /api/me`, onboarding & feedback persistence**                   | ✅ (Phase 2)                      |
-| **Account deletion + Plaid-item disconnect endpoints**                 | ✅ (Phase 2)                      |
-| **Integration tests (repos + RLS isolation + token safety)**           | ✅ written, run vs local Supabase |
-| API route structure (16 endpoints)                                     | ✅ (6 live, 10 documented stubs)  |
+| Supabase Auth JWT verification + per-user scoping                      | ✅ (Phase 2)                      |
+| `GET /api/me`, onboarding & feedback persistence                       | ✅ (Phase 2)                      |
+| Account deletion + Plaid-item disconnect endpoints                     | ✅ (Phase 2)                      |
+| Integration tests (repos + RLS isolation + token safety)               | ✅ written, run vs local Supabase |
+| **Plaid client + link-token / public-token exchange**                  | ✅ (Phase 3)                      |
+| **Cursor-based transaction sync (`/transactions/sync`)**               | ✅ (Phase 3)                      |
+| **Signature-verified Plaid webhook (ES256, Node crypto)**              | ✅ (Phase 3)                      |
+| **`GET /api/transactions` + ignore**                                   | ✅ (Phase 3)                      |
+| API route structure (18 endpoints)                                     | ✅ (12 live, 6 documented stubs)  |
 
-Plaid linking, transaction sync, and the iOS surfaces are **not** built yet —
+Runway snapshot persistence (Phase 4) and the iOS surfaces are **not** built yet —
 see [`NEXT_STEPS.md`](./NEXT_STEPS.md).
 
 ### Auth
 
 Protected endpoints expect `Authorization: Bearer <supabase-jwt>`. The server
 verifies the token via Supabase (`auth.getUser`) in `src/lib/api/auth.ts` and
-scopes every data access to the returned user id; RLS is the backstop. Live
-authed endpoints: `GET /api/me`, `POST /api/onboarding/paycheck` (persists),
-`POST /api/feedback` (persists), `DELETE /api/account`, `DELETE /api/plaid/item/:id`.
+scopes every data access to the returned user id; RLS is the backstop. Authed
+endpoints: `GET /api/me`, `POST /api/onboarding/paycheck`, `POST /api/feedback`,
+`DELETE /api/account`, `DELETE /api/plaid/item/:id`, `POST /api/plaid/link-token`,
+`POST /api/plaid/exchange-public-token`, `POST /api/plaid/sync`,
+`GET /api/transactions`, `POST /api/transactions/:id/ignore`.
+
+`POST /api/plaid/webhook` is **not** user-authed — it is authenticated by Plaid's
+signed `Plaid-Verification` JWT, which the server verifies (signature + body hash +
+freshness) before trusting the payload.
 
 ---
 
@@ -205,8 +214,12 @@ business-logic modules:
 - Analytics sanitization (forbidden keys dropped, amounts bucketed)
 - DB → engine mappers
 - API request schemas + runway service
-- **Auth: bearer extraction + JWT verification (valid / invalid / error / throw)**
-- **API route handlers: `/me`, onboarding, feedback, account delete, Plaid disconnect (401 / 400 / 404 / success, mocked auth + repos), plus the public demo routes**
+- Auth: bearer extraction + JWT verification (valid / invalid / error / throw)
+- API route handlers: `/me`, onboarding, feedback, account delete, Plaid disconnect (401 / 400 / 404 / success, mocked auth + repos), plus the public demo routes
+- **Plaid mappers (account/transaction → DB rows, account fallback, unknown-account skip)**
+- **Transaction sync: cursor pagination + "advance cursor only on success" (mocked Plaid client)**
+- **Plaid webhook ES256 verification (valid / tampered body / wrong key / replay / bad alg / key-fetch failure)**
+- **Plaid route handlers: link-token, exchange (token never returned), sync, webhook (401 on bad signature), transactions list + ignore**
 
 ### Integration tests (local Supabase)
 

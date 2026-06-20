@@ -64,3 +64,21 @@ export const feedbackSchema = z.object({
   freeText: z.string().max(2000).nullish(),
 });
 export type FeedbackBody = z.infer<typeof feedbackSchema>;
+
+// --- Plaid (Phase 3) -------------------------------------------------------
+
+export const exchangePublicTokenSchema = z.object({
+  publicToken: z.string().min(1, 'publicToken is required'),
+});
+export type ExchangePublicTokenBody = z.infer<typeof exchangePublicTokenSchema>;
+
+export const plaidSyncSchema = z.object({
+  /** Optional: sync just one item (our row id). Omit to sync all the user's items. */
+  itemId: z.string().uuid().optional(),
+});
+export type PlaidSyncBody = z.infer<typeof plaidSyncSchema>;
+
+export const ignoreTransactionSchema = z.object({
+  ignored: z.boolean().default(true),
+});
+export type IgnoreTransactionBody = z.infer<typeof ignoreTransactionSchema>;

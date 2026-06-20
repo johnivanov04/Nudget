@@ -26,6 +26,8 @@ export const envSchema = z.object({
   PLAID_ENV: z.enum(['sandbox', 'development', 'production'], {
     errorMap: () => ({ message: 'PLAID_ENV must be one of: sandbox, development, production' }),
   }),
+  // Optional: public HTTPS URL Plaid will POST webhooks to (set on link tokens).
+  PLAID_WEBHOOK_URL: z.string().url().optional(),
 
   // --- Encryption (server only) ---
   TOKEN_ENCRYPTION_KEY: z

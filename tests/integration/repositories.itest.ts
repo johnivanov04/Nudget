@@ -67,6 +67,27 @@ d('repositories (integration)', () => {
     expect((await plaidItemsRepo.listByUser(user.userId)).length).toBe(0);
   });
 
+  it('plaidItemsRepo: getOwned + getByPlaidItemId lookups (Phase 3 sync paths)', async () => {
+    const plaidItemId = `lookup-${user.userId}`;
+    const item = await plaidItemsRepo.create({
+      userId: user.userId,
+      plaidItemId,
+      accessToken: 'tok',
+    });
+
+    // getOwned: returns the item only for its owner.
+    expect((await plaidItemsRepo.getOwned(user.userId, item.id))?.id).toBe(item.id);
+    expect(
+      await plaidItemsRepo.getOwned('00000000-0000-0000-0000-000000000000', item.id),
+    ).toBeNull();
+
+    // getByPlaidItemId: webhook path (no user context).
+    expect((await plaidItemsRepo.getByPlaidItemId(plaidItemId))?.id).toBe(item.id);
+    expect(await plaidItemsRepo.getByPlaidItemId('does-not-exist')).toBeNull();
+
+    await plaidItemsRepo.removeOwned(user.userId, item.id);
+  });
+
   it('accountsRepo + transactionsRepo: upsert, list, ignore, delete', async () => {
     const item = await plaidItemsRepo.create({
       userId: user.userId,

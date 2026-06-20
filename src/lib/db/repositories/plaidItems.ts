@@ -43,6 +43,29 @@ export const plaidItemsRepo = {
     return (data as PlaidItemRow[]) ?? [];
   },
 
+  /** Ownership-scoped fetch — for user-triggered sync. */
+  async getOwned(userId: string, itemId: string): Promise<PlaidItemRow | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('plaid_items')
+      .select('*')
+      .eq('id', itemId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as PlaidItemRow) ?? null;
+  },
+
+  /** Lookup by Plaid's item_id — for webhook-driven sync (no user context). */
+  async getByPlaidItemId(plaidItemId: string): Promise<PlaidItemRow | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('plaid_items')
+      .select('*')
+      .eq('plaid_item_id', plaidItemId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as PlaidItemRow) ?? null;
+  },
+
   /** Decrypt the access token for a single item. Server-side use only. */
   async getDecryptedAccessToken(itemId: string): Promise<string> {
     const { data, error } = await getSupabaseAdmin()
