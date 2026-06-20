@@ -109,20 +109,28 @@ the API route skeleton (3 live endpoints + 11 documented stubs).
 - [ ] Reads the local cached snapshot; no blocking network; deep-links into app.
 - [ ] Manual QA matrix: no-data, safe, caution, danger, stale, privacy mode.
 
-## Phase 7 — Push nudges via APNs (Roadmap Week 9, build order 10)
+## Phase 7 — Push nudges (Roadmap Week 9, build order 10) — backend DONE, delivery pending
 
-- [ ] `device_tokens` table + `POST /api/device/register`; nudge preferences.
-- [ ] Morning runway nudge, bill-approach nudge, danger-state nudge.
-- [ ] Throttle: ≤ 1 morning + 1 bill/risk nudge per day unless opted in.
-- [ ] Non-shaming copy (templates keyed by `copy_key`); enable/disable; tone options.
-- [ ] `nudgeEventsRepo` for delivery + helpful/not-helpful feedback.
+- [x] `device_tokens` table (migration 0003) + `POST /api/device/register` (stores a
+      SHA-256 hash, never the raw token); `notification_preferences` + GET/POST.
+- [x] Pure nudge engine (`src/lib/domain/nudges.ts`): morning / bill-approach / danger,
+      non-shaming `copy_key` templates, tone, and the ≤ 1 morning + 1 bill/risk daily throttle.
+- [x] `planAndRecordNudges` records sends in `nudgeEventsRepo` (event nudges fire after sync);
+      `previewNudges` powers `POST /api/nudges/test`; nudge feedback flows through `POST /api/feedback`.
+- [ ] **APNs delivery**: store the raw token encrypted, build the push payload from `copy_key`,
+      and actually send (needs Apple Push credentials). The engine + records already exist.
+- [ ] **Scheduled morning nudge**: a cron-triggered endpoint that calls
+      `planAndRecordNudges(user, 'morning')` for users whose `morning_hour` matches.
 
-## Phase 8 — Beta analytics + admin (Roadmap Week 10, build order 11–13)
+## Phase 8 — Beta analytics + admin (Roadmap Week 10, build order 11–13) — partial
 
-- [ ] Privacy-safe funnel analytics using `buildAnalyticsEvent` (already enforces
-      forbidden keys + bucketing).
-- [ ] Admin/debug dashboard: linking, widget adds, nudge events, bill errors,
-      sync health (no raw financial data).
+- [x] Privacy-safe analytics event builders (`src/lib/analytics/events.ts`) using
+      `buildAnalyticsEvent` (forbidden-key stripping + bucketing); `emitAnalytics` sink (no-op).
+- [x] `GET /api/admin/metrics` (admin-gated by `ADMIN_USER_IDS`): aggregate COUNTS only.
+- [ ] Wire `emitAnalytics` to a real privacy-safe provider; call the builders from every
+      funnel point (signup, plaid link, payday saved, runway viewed, bill decisions, outcomes).
+- [ ] Admin/debug **dashboard UI** (web) over the metrics endpoint.
+- [ ] Wire **Sentry** (server) with financial-data scrubbing (carried from Phase 2).
 - [ ] TestFlight build, privacy policy/terms, App Store privacy disclosures.
 - [ ] UAT scenarios from the Feature Spec (first setup, bill correction, widget
       setup, privacy mode, stale sync).
@@ -148,15 +156,14 @@ money movement, multi-user/shared budgets, advanced category breakdowns.
 
 ## Suggested next prompt for Claude
 
-> Implement the **backend slice of nudges + analytics** for Nudget at `~/nudget` (no APNs
-> delivery, no iOS yet). Build a pure nudge engine (`src/lib/domain/nudges.ts`): given a
-> runway snapshot + user notification preferences + recent nudge history, decide which
-> nudges fire (morning runway, bill-approach, danger-state), select a non-shaming
-> `copy_key`, and enforce throttling (≤ 1 morning + 1 bill/risk per day unless opted in).
-> Add a `device_tokens` table (migration 0003) + `POST /api/device/register` and notification
-> preferences on the profile. Record sent nudges via `nudgeEventsRepo`; wire
-> `nudge_feedback_submitted` through `POST /api/feedback`. Add the privacy-safe analytics
-> emit path (using `lib/analytics/sanitize`) for the core funnel events, and read-only admin
-> endpoints (sync health, bill-prediction quality, funnel) that never expose raw financial
-> data. Unit-test the nudge engine (eligibility, throttling, copy selection) + analytics
-> sanitization thoroughly; tests mandatory; defer actual APNs push + iOS to later phases.
+> Implement **nudge scheduling + production hardening** for Nudget at `~/nudget` (still no
+> iOS UI). Add a cron-triggered morning-nudge endpoint (`GET /api/cron/morning-nudges`,
+> gated by a `CRON_SECRET` bearer, configured as a Vercel cron) that calls
+> `planAndRecordNudges(user, 'morning')` for users whose `notification_preferences.morning_hour`
+> matches the current hour in their timezone. Add the privacy-acknowledgement endpoint
+> (`POST /api/onboarding/privacy` → `profilesRepo.markPrivacyAcknowledged`). Wire **Sentry**
+> on the server with financial-data scrubbing, and make `emitAnalytics` forward to a
+> configurable provider (no-op when unset). Add lightweight rate limiting to the auth-gated,
+> expensive endpoints (sync, recalculate). Unit-test the cron selection logic (which users
+> are due) + the privacy/rate-limit helpers with mocks; tests mandatory. Defer actual APNs
+> push payload delivery (needs Apple credentials) and the iOS app to later phases.

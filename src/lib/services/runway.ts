@@ -5,7 +5,7 @@
  * deterministic `buildRunwaySnapshot` engine.
  */
 import { buildRunwaySnapshot, type RunwaySnapshot } from '@/lib/domain/snapshot';
-import { addDays, todayInTimeZone } from '@/lib/domain/dateUtils';
+import { addDays, todayInTimeZone, type IsoDate } from '@/lib/domain/dateUtils';
 import type { EngineBill } from '@/lib/domain/types';
 import {
   accountsRepo,
@@ -38,16 +38,28 @@ function latestSyncAt(items: PlaidItemRow[]): string | null {
   return times.length ? times[times.length - 1]! : null;
 }
 
-export async function recomputeRunwayForUser(
+export interface ComputeResult {
+  status: 'ok' | 'needs_data' | 'needs_schedule';
+  today: IsoDate;
+  snapshot: RunwaySnapshot | null;
+  /** Bills loaded for the snapshot (also fed to the nudge engine). */
+  bills: EngineBill[];
+}
+
+/**
+ * Compute (but do NOT persist) the runway snapshot from DB data. Shared by the
+ * recompute endpoint and the nudge engine so both see identical inputs.
+ */
+export async function computeRunwayForUser(
   userId: string,
   now: Date = new Date(),
-): Promise<RecomputeResult> {
+): Promise<ComputeResult> {
   const profile = await profilesRepo.getById(userId);
   const timezone = profile?.timezone ?? 'America/Los_Angeles';
   const today = todayInTimeZone(timezone, now);
 
   const schedule = await paycheckSchedulesRepo.getByUser(userId);
-  if (!schedule) return { status: 'needs_schedule' };
+  if (!schedule) return { status: 'needs_schedule', today, snapshot: null, bills: [] };
 
   const [accounts, txnRows, billRows, items] = await Promise.all([
     accountsRepo.listByUser(userId),
@@ -57,15 +69,28 @@ export async function recomputeRunwayForUser(
     plaidItemsRepo.listByUser(userId),
   ]);
 
+  const bills = billRows.map(billRowToEngine).filter((b): b is EngineBill => b !== null);
+
   const snapshot = buildRunwaySnapshot({
     today,
     availableCash: sumAvailableCash(accounts),
     transactions: txnRows.map(transactionRowToEngine),
-    bills: billRows.map(billRowToEngine).filter((b): b is EngineBill => b !== null),
+    bills,
     schedule: scheduleRowToEngine(schedule),
     lastUpdatedAt: latestSyncAt(items),
     now: now.toISOString(),
   });
+
+  return { status: snapshot.status, today, snapshot, bills };
+}
+
+export async function recomputeRunwayForUser(
+  userId: string,
+  now: Date = new Date(),
+): Promise<RecomputeResult> {
+  const computed = await computeRunwayForUser(userId, now);
+  if (!computed.snapshot) return { status: computed.status };
+  const snapshot = computed.snapshot;
 
   const persisted = await runwaySnapshotsRepo.insert({
     user_id: userId,

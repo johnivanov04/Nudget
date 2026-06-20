@@ -10,6 +10,7 @@ import type { NextRequest } from 'next/server';
 import { getUserFromRequest } from '@/lib/api/auth';
 import { feedbackSchema } from '@/lib/api/schemas';
 import { feedbackEventsRepo } from '@/lib/db/repositories';
+import { analyticsEvents, emitAnalytics } from '@/lib/analytics/events';
 import { ok, badRequest, unauthorized } from '@/lib/api/responses';
 
 export async function POST(req: NextRequest) {
@@ -36,6 +37,16 @@ export async function POST(req: NextRequest) {
     rating: body.rating ?? null,
     free_text: body.freeText ?? null,
   });
+
+  // Privacy-safe analytics for nudge feedback (no free_text, no raw data).
+  if (body.eventType === 'nudge_helpful') {
+    emitAnalytics(
+      analyticsEvents.nudgeFeedbackSubmitted({
+        helpful: (body.rating ?? 0) >= 3,
+        rating: body.rating ?? null,
+      }),
+    );
+  }
 
   return ok({ id: saved.id, accepted: true, persisted: true }, { status: 201 });
 }

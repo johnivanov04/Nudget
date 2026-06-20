@@ -163,6 +163,12 @@ export async function seedUserGraph(
     event_type: 'nudge_helpful',
     rating: 5,
   });
+  await admin.from('device_tokens').insert({
+    user_id: userId,
+    platform: 'ios',
+    token_hash: `hash-${userId}`,
+  });
+  await admin.from('notification_preferences').insert({ user_id: userId });
 
   return { plaidItemId, accountId, transactionId };
 }
@@ -177,4 +183,6 @@ export const USER_SCOPED_TABLES = [
   'runway_snapshots',
   'nudge_events',
   'feedback_events',
+  'device_tokens',
+  'notification_preferences',
 ] as const;

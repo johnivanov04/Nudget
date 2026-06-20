@@ -17,6 +17,9 @@ import {
   runwaySnapshotsRepo,
   nudgeEventsRepo,
   feedbackEventsRepo,
+  deviceTokensRepo,
+  hashDeviceToken,
+  notificationPreferencesRepo,
 } from '@/lib/db/repositories';
 
 const d = integrationEnabled ? describe : describe.skip;
@@ -228,5 +231,24 @@ d('repositories (integration)', () => {
       free_text: 'saved me an overdraft',
     });
     expect((await feedbackEventsRepo.listByUser(user.userId)).length).toBeGreaterThan(0);
+  });
+
+  it('deviceTokensRepo: stores a hash (not the raw token), idempotent register', async () => {
+    const raw = 'apns-raw-device-token';
+    const first = await deviceTokensRepo.register({ userId: user.userId, rawToken: raw });
+    expect(first.token_hash).toBe(hashDeviceToken(raw));
+    expect(first.token_hash).not.toContain(raw);
+    // Re-registering the same token does not duplicate.
+    await deviceTokensRepo.register({ userId: user.userId, rawToken: raw });
+    const tokens = await deviceTokensRepo.listByUser(user.userId);
+    expect(tokens.filter((t) => t.token_hash === hashDeviceToken(raw))).toHaveLength(1);
+  });
+
+  it('notificationPreferencesRepo: upsert + read (one per user)', async () => {
+    await notificationPreferencesRepo.upsert({ user_id: user.userId, tone: 'direct' });
+    await notificationPreferencesRepo.upsert({ user_id: user.userId, morning_enabled: false });
+    const prefs = await notificationPreferencesRepo.getByUser(user.userId);
+    expect(prefs?.tone).toBe('direct');
+    expect(prefs?.morning_enabled).toBe(false);
   });
 });

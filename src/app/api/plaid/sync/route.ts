@@ -12,6 +12,7 @@ import { plaidItemsRepo } from '@/lib/db/repositories';
 import { syncTransactionsForItem } from '@/lib/plaid/sync';
 import { runBillDetection } from '@/lib/services/bills';
 import { recomputeRunwayForUser } from '@/lib/services/runway';
+import { planAndRecordNudges } from '@/lib/services/nudges';
 import { ok, badRequest, unauthorized, notFound, serverError } from '@/lib/api/responses';
 import type { PlaidItemRow } from '@/lib/db/types';
 
@@ -55,6 +56,8 @@ export async function POST(req: NextRequest) {
       const detection = await runBillDetection(user.userId);
       billsUpserted = detection.upserted;
       await recomputeRunwayForUser(user.userId);
+      // Event-occasion nudges (danger / bill-approach) — throttled in the engine.
+      await planAndRecordNudges(user.userId, 'event');
     } catch {
       // swallow — sync itself succeeded
     }

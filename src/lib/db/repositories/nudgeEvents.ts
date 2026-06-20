@@ -23,6 +23,17 @@ export const nudgeEventsRepo = {
     return (data as NudgeEventRow[]) ?? [];
   },
 
+  /** Nudges sent on/after `sinceIso` — used to throttle daily sends. */
+  async listSentSince(userId: string, sinceIso: string): Promise<NudgeEventRow[]> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('nudge_events')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('sent_at', sinceIso);
+    if (error) throw error;
+    return (data as NudgeEventRow[]) ?? [];
+  },
+
   async markOpened(nudgeId: string): Promise<void> {
     const { error } = await getSupabaseAdmin()
       .from('nudge_events')

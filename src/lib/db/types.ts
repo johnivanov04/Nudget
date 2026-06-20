@@ -144,6 +144,34 @@ export interface FeedbackEventRow {
   created_at: string;
 }
 
+export type DevicePlatform = 'ios' | 'android';
+
+export interface DeviceTokenRow {
+  id: string;
+  user_id: string;
+  platform: DevicePlatform;
+  /** SHA-256 of the device token — never the raw token. */
+  token_hash: string;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NudgeTone = 'gentle' | 'direct' | 'minimal';
+
+export interface NotificationPreferencesRow {
+  user_id: string;
+  enabled: boolean;
+  morning_enabled: boolean;
+  bill_approach_enabled: boolean;
+  danger_enabled: boolean;
+  tone: NudgeTone;
+  morning_hour: number;
+  allow_extra: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Convenience map of table name -> row type for typed repositories. */
 export interface Database {
   profiles: ProfileRow;
@@ -155,4 +183,6 @@ export interface Database {
   runway_snapshots: RunwaySnapshotRow;
   nudge_events: NudgeEventRow;
   feedback_events: FeedbackEventRow;
+  device_tokens: DeviceTokenRow;
+  notification_preferences: NotificationPreferencesRow;
 }

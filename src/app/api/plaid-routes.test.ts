@@ -27,6 +27,7 @@ const h = vi.hoisted(() => ({
   getEnv: vi.fn(),
   runBillDetection: vi.fn(),
   recomputeRunway: vi.fn(),
+  planAndRecordNudges: vi.fn(),
 }));
 
 vi.mock('@/lib/api/auth', () => ({ getUserFromRequest: h.getUserFromRequest }));
@@ -55,6 +56,7 @@ vi.mock('@/lib/plaid/webhook', () => ({ verifyPlaidWebhook: h.verifyWebhook }));
 vi.mock('@/lib/env', () => ({ getEnv: h.getEnv }));
 vi.mock('@/lib/services/bills', () => ({ runBillDetection: h.runBillDetection }));
 vi.mock('@/lib/services/runway', () => ({ recomputeRunwayForUser: h.recomputeRunway }));
+vi.mock('@/lib/services/nudges', () => ({ planAndRecordNudges: h.planAndRecordNudges }));
 
 import { POST as linkToken } from './plaid/link-token/route';
 import { POST as exchange } from './plaid/exchange-public-token/route';
@@ -78,6 +80,7 @@ beforeEach(() => {
   h.getEnv.mockReturnValue({ PLAID_WEBHOOK_URL: undefined });
   h.runBillDetection.mockResolvedValue({ detected: 0, upserted: 0 });
   h.recomputeRunway.mockResolvedValue({ status: 'ok' });
+  h.planAndRecordNudges.mockResolvedValue({ status: 'none', planned: [] });
 });
 
 describe('POST /api/plaid/link-token', () => {
@@ -181,9 +184,10 @@ describe('POST /api/plaid/sync', () => {
     expect(res.status).toBe(200);
     expect((await res.json()).synced).toBe(2);
     expect(h.syncItem).toHaveBeenCalledTimes(2);
-    // After syncing, detection + runway recompute run for the user.
+    // After syncing, detection + runway recompute + event nudges run for the user.
     expect(h.runBillDetection).toHaveBeenCalledWith('user-A');
     expect(h.recomputeRunway).toHaveBeenCalledWith('user-A');
+    expect(h.planAndRecordNudges).toHaveBeenCalledWith('user-A', 'event');
   });
 });
 

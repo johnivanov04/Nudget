@@ -10,15 +10,15 @@ single, glanceable question using three numbers:
 - **Bills before payday**
 - **Safe to spend until payday**
 
-This repository is the **backend** (Phases 1–4 complete: foundation · auth/persistence ·
-Plaid sync · bill detection + runway persistence). The iOS app (SwiftUI), the
-home/lock-screen widget (WidgetKit), and push nudges (APNs) come in later phases.
+This repository is the **backend** (Phases 1–5 complete: foundation · auth/persistence ·
+Plaid sync · bill detection + runway persistence · nudge engine + analytics). The actual
+APNs push delivery, the iOS app (SwiftUI), and the WidgetKit widget come in later phases.
 
 ---
 
 ## Current phase status
 
-**Phases 1–4 complete:** foundation · auth + persistence · Plaid sync · bill detection + runway persistence.
+**Phases 1–5 (backend) complete:** foundation · auth + persistence · Plaid sync · bill detection + runway persistence · nudge engine + analytics.
 
 | Area                                                                   | Status                            |
 | ---------------------------------------------------------------------- | --------------------------------- |
@@ -35,19 +35,23 @@ home/lock-screen widget (WidgetKit), and push nudges (APNs) come in later phases
 | Plaid client + link-token / public-token exchange                      | ✅ (Phase 3)                      |
 | Cursor-based transaction sync (`/transactions/sync`)                   | ✅ (Phase 3)                      |
 | Signature-verified Plaid webhook (ES256, Node crypto)                  | ✅ (Phase 3)                      |
-| **Recurring-bill detection (normalize → cadence → confidence)**        | ✅ (Phase 4) unit-tested          |
-| **DB-backed runway recompute + persisted `runway_snapshots`**          | ✅ (Phase 4)                      |
-| **`/runway/current` + `/widget/snapshot` read cached snapshot**        | ✅ (Phase 4)                      |
-| API route structure (20 endpoints)                                     | ✅ (16 live, 4 documented stubs)  |
+| Recurring-bill detection (normalize → cadence → confidence)            | ✅ (Phase 4) unit-tested          |
+| DB-backed runway recompute + persisted `runway_snapshots`              | ✅ (Phase 4)                      |
+| `/runway/current` + `/widget/snapshot` read cached snapshot            | ✅ (Phase 4)                      |
+| **Nudge engine (eligibility, throttle, non-shaming copy keys)**        | ✅ (Phase 5) unit-tested          |
+| **Device-token registration + notification preferences**               | ✅ (Phase 5)                      |
+| **Privacy-safe analytics event builders + admin metrics endpoint**     | ✅ (Phase 5)                      |
+| API route structure (25 endpoints)                                     | ✅ (21 live, 4 documented stubs)  |
 
-The iOS app (SwiftUI), WidgetKit, and APNs nudges are **not** built yet —
-see [`NEXT_STEPS.md`](./NEXT_STEPS.md).
+The actual APNs push delivery, the iOS app (SwiftUI), and WidgetKit are **not**
+built yet — see [`NEXT_STEPS.md`](./NEXT_STEPS.md).
 
 ### Data flow
 
 ```
 Plaid → /api/plaid/sync → transactions → bill detection → runway recompute → runway_snapshots
-                                                                  ↑
+                                                  │                ↑
+                                                  └→ nudge engine ─┘ (event nudges; throttled)
         confirm bill / ignore transaction ───────────────────────┘  (recompute on change)
         /api/runway/current + /api/widget/snapshot read the cached snapshot
 ```
@@ -62,11 +66,13 @@ endpoints: `GET /api/me`, `POST /api/onboarding/paycheck`, `POST /api/feedback`,
 `POST /api/plaid/exchange-public-token`, `POST /api/plaid/sync`,
 `GET /api/transactions`, `POST /api/transactions/:id/ignore`,
 `GET /api/bills/detected`, `POST /api/bills/:id/confirm`,
-`POST /api/runway/recalculate`, `GET /api/runway/current`, `GET /api/widget/snapshot`.
+`POST /api/runway/recalculate`, `GET /api/runway/current`, `GET /api/widget/snapshot`,
+`POST /api/device/register`, `GET|POST /api/nudges/preferences`, `POST /api/nudges/test`.
 
 `POST /api/plaid/webhook` is **not** user-authed — it is authenticated by Plaid's
 signed `Plaid-Verification` JWT, which the server verifies (signature + body hash +
-freshness) before trusting the payload.
+freshness) before trusting the payload. `GET /api/admin/metrics` is auth-gated **and**
+admin-gated (caller's id must be in `ADMIN_USER_IDS`); it returns aggregate counts only.
 
 ---
 
@@ -235,9 +241,13 @@ business-logic modules:
 - **Recurring-bill detection (merchant normalization, cadence, confidence, irregular-series rejection, inflow exclusion)**
 - **`todayInTimeZone` (per-user local date)**
 - **Snapshot-row views (dashboard + privacy-mode widget projections)**
-- **Bill-detection service (persists candidates, skips user-confirmed/rejected keys)**
-- **Runway recompute service (DB → engine → persisted snapshot; needs_schedule / needs_data)**
-- **Bills + runway route handlers: detected, confirm (recomputes), recalculate, current, widget**
+- Bill-detection service (persists candidates, skips user-confirmed/rejected keys)
+- Runway recompute service (DB → engine → persisted snapshot; needs_schedule / needs_data)
+- Bills + runway route handlers: detected, confirm (recomputes), recalculate, current, widget
+- **Nudge engine (eligibility, per-channel toggles, danger-over-bill priority, daily throttle, stale/no-data handling, tone in copy key)**
+- **Analytics event builders (bucketing + forbidden-key stripping) and the admin allowlist gate**
+- **Nudge service (plan + record + throttle; preview without recording)**
+- **Notification + admin route handlers: device register (token never echoed), preferences GET/POST, test preview, admin metrics (401/403/200)**
 
 ### Integration tests (local Supabase)
 

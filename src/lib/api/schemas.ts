@@ -95,3 +95,27 @@ export const confirmBillSchema = z.object({
   cadence: z.enum(['weekly', 'biweekly', 'monthly', 'annual']).optional(),
 });
 export type ConfirmBillBody = z.infer<typeof confirmBillSchema>;
+
+// --- Notifications (Phase 5 backend slice) ---------------------------------
+
+export const deviceRegisterSchema = z.object({
+  deviceToken: z.string().min(1, 'deviceToken is required'),
+  platform: z.enum(['ios', 'android']).default('ios'),
+});
+export type DeviceRegisterBody = z.infer<typeof deviceRegisterSchema>;
+
+export const notificationPreferencesSchema = z.object({
+  enabled: z.boolean().optional(),
+  morningEnabled: z.boolean().optional(),
+  billApproachEnabled: z.boolean().optional(),
+  dangerEnabled: z.boolean().optional(),
+  tone: z.enum(['gentle', 'direct', 'minimal']).optional(),
+  morningHour: z.number().int().min(0).max(23).optional(),
+  allowExtra: z.boolean().optional(),
+});
+export type NotificationPreferencesBody = z.infer<typeof notificationPreferencesSchema>;
+
+export const testNudgeSchema = z.object({
+  occasion: z.enum(['morning', 'event']).default('morning'),
+});
+export type TestNudgeBody = z.infer<typeof testNudgeSchema>;
