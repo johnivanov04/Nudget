@@ -10,29 +10,42 @@ single, glanceable question using three numbers:
 - **Bills before payday**
 - **Safe to spend until payday**
 
-This repository is the **backend foundation** (Phase 1). The iOS app (SwiftUI), the
-home/lock-screen widget (WidgetKit), and push nudges (APNs) come in later phases.
+This repository is the **backend** (Phases 1–2 complete: foundation + auth/persistence).
+The iOS app (SwiftUI), the home/lock-screen widget (WidgetKit), and push nudges (APNs)
+come in later phases.
 
 ---
 
 ## Current phase status
 
-**Phase 1 — Backend foundation: complete.**
+**Phase 1 — Backend foundation: complete. Phase 2 — Auth + persistence: complete.**
 
-| Area                                                                   | Status                                        |
-| ---------------------------------------------------------------------- | --------------------------------------------- |
-| Next.js + TypeScript project                                           | ✅                                            |
-| Lint / format / typecheck / test tooling                               | ✅                                            |
-| Env validation (zod)                                                   | ✅                                            |
-| Postgres migration + RLS (9 core tables)                               | ✅                                            |
-| Server-side types + per-table repositories                             | ✅                                            |
-| Plaid access-token encryption (AES-256-GCM)                            | ✅                                            |
-| Pure runway engine (payday, daily spend, classification, runway, risk) | ✅ unit-tested                                |
-| Seed/mock data + runnable demo                                         | ✅                                            |
-| API route structure (14 endpoints)                                     | ✅ (3 live + validation, 11 documented stubs) |
+| Area                                                                   | Status                            |
+| ---------------------------------------------------------------------- | --------------------------------- |
+| Next.js + TypeScript project                                           | ✅                                |
+| Lint / format / typecheck / test tooling                               | ✅                                |
+| Env validation (zod)                                                   | ✅                                |
+| Postgres migration + RLS (9 core tables)                               | ✅                                |
+| Server-side types + per-table repositories                             | ✅                                |
+| Plaid access-token encryption (AES-256-GCM)                            | ✅                                |
+| Pure runway engine (payday, daily spend, classification, runway, risk) | ✅ unit-tested                    |
+| Seed/mock data + runnable demo                                         | ✅                                |
+| **Supabase Auth JWT verification + per-user scoping**                  | ✅ (Phase 2)                      |
+| **`GET /api/me`, onboarding & feedback persistence**                   | ✅ (Phase 2)                      |
+| **Account deletion + Plaid-item disconnect endpoints**                 | ✅ (Phase 2)                      |
+| **Integration tests (repos + RLS isolation + token safety)**           | ✅ written, run vs local Supabase |
+| API route structure (16 endpoints)                                     | ✅ (6 live, 10 documented stubs)  |
 
-Plaid linking, transaction sync, auth-gated persistence, and the iOS surfaces are
-**not** built yet — see [`NEXT_STEPS.md`](./NEXT_STEPS.md).
+Plaid linking, transaction sync, and the iOS surfaces are **not** built yet —
+see [`NEXT_STEPS.md`](./NEXT_STEPS.md).
+
+### Auth
+
+Protected endpoints expect `Authorization: Bearer <supabase-jwt>`. The server
+verifies the token via Supabase (`auth.getUser`) in `src/lib/api/auth.ts` and
+scopes every data access to the returned user id; RLS is the backstop. Live
+authed endpoints: `GET /api/me`, `POST /api/onboarding/paycheck` (persists),
+`POST /api/feedback` (persists), `DELETE /api/account`, `DELETE /api/plaid/item/:id`.
 
 ---
 
@@ -171,16 +184,13 @@ tests, which use the in-code seed).
 ## Testing
 
 ```bash
-npm test            # run the full suite once
+npm test            # unit suite (no DB required) — runs everywhere
 npm run test:watch  # watch mode
 npm run test:coverage
 ```
 
-Tests are **mandatory** and cover normal, edge, and failure cases. See the test command
-output and the list of tested modules at the bottom of the Phase 1 summary, or just run
-`npm test`.
-
-Tested business-logic modules:
+Unit tests are **mandatory** and cover normal, edge, and failure cases. Tested
+business-logic modules:
 
 - Payday date calculation & days-until-payday (weekly/biweekly/semimonthly/monthly/custom, weekend rules, overrides)
 - Daily spend calculation
@@ -195,7 +205,32 @@ Tested business-logic modules:
 - Analytics sanitization (forbidden keys dropped, amounts bucketed)
 - DB → engine mappers
 - API request schemas + runway service
-- API route handlers (the 3 live endpoints + a stub)
+- **Auth: bearer extraction + JWT verification (valid / invalid / error / throw)**
+- **API route handlers: `/me`, onboarding, feedback, account delete, Plaid disconnect (401 / 400 / 404 / success, mocked auth + repos), plus the public demo routes**
+
+### Integration tests (local Supabase)
+
+`tests/integration/*.itest.ts` exercise the **real repositories, RLS isolation,
+and token safety** against a local Supabase Postgres. They self-skip unless the
+DB env is provided, so they never block `npm test`.
+
+```bash
+supabase start    # prints API URL + anon/service-role keys
+NUDGET_DB_TEST=1 \
+  SUPABASE_TEST_URL=http://127.0.0.1:54321 \
+  SUPABASE_TEST_ANON_KEY=<local-anon-key> \
+  SUPABASE_TEST_SERVICE_ROLE_KEY=<local-service-role-key> \
+  npm run test:integration
+```
+
+(See `.env.test.example`.) Coverage:
+
+- **Every repository** — CRUD round-trips through the service-role path.
+- **RLS isolation** — user A cannot read or write user B's rows in any
+  user-scoped table; an unauthenticated client sees nothing.
+- **Token safety** — stored Plaid tokens are ciphertext (never plaintext), no
+  column leaks the plaintext, another user can't read the item, and only the
+  server-side helper can decrypt.
 
 ---
 

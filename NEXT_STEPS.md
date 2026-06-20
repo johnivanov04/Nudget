@@ -1,8 +1,8 @@
 # Nudget — Next Steps / Roadmap
 
 This maps the remaining work from the three planning documents (PRD, Feature
-Specifications, 90-Day Roadmap) onto concrete engineering phases. Phase 1
-(backend foundation) is **done**; everything below is outstanding.
+Specifications, 90-Day Roadmap) onto concrete engineering phases. Phases 1–2
+are **done**; Phase 3 onward is outstanding.
 
 The guardrail for every item: **does it improve the answer to "How much can I
 safely spend before payday after upcoming bills?"** If not, defer it.
@@ -17,22 +17,28 @@ the API route skeleton (3 live endpoints + 11 documented stubs).
 
 ---
 
-## Phase 2 — Auth + persistence (Roadmap Week 2)
+## ✅ Phase 2 — Auth + persistence (Roadmap Week 2) (DONE)
 
 **Goal:** real users; protected, user-scoped endpoints.
 
-- [ ] Integrate **Supabase Auth** (email/password + Apple Sign-In).
-- [ ] Implement `getUserFromRequest` (`src/lib/api/auth.ts`) — verify the Supabase
-      JWT and return the user id; enforce per-user scoping (RLS is the backstop).
-- [ ] Wire **`GET /api/me`** to `profilesRepo` (profile + onboarding state).
-- [ ] Persist onboarding: **`POST /api/onboarding/paycheck`** → `paycheckSchedulesRepo.upsert`
-      (store computed `next_paycheck_date`).
-- [ ] Persist feedback: **`POST /api/feedback`** → `feedbackEventsRepo.insert`
-      (screen `free_text`; never forward raw financial detail to analytics).
-- [ ] Account deletion + Plaid-item disconnect endpoints (privacy requirement).
-- [ ] Privacy acknowledgement flow (`privacy_acknowledged_at`).
-- [ ] **Integration tests** against a local Supabase Postgres for every repository
-      (currently only the pure mappers are tested).
+- [x] `getUserFromRequest` (`src/lib/api/auth.ts`) — verifies the Supabase JWT via
+      `auth.getUser` and returns the user id; routes scope all access to it (RLS backstop).
+- [x] **`GET /api/me`** → `profilesRepo` (profile + onboarding state).
+- [x] Persist onboarding: **`POST /api/onboarding/paycheck`** → `paycheckSchedulesRepo.upsert`
+      (stores the computed `next_paycheck_date`).
+- [x] Persist feedback: **`POST /api/feedback`** → `feedbackEventsRepo.insert`.
+- [x] **`DELETE /api/account`** (cascades all data) + **`DELETE /api/plaid/item/:id`**
+      (ownership-scoped disconnect).
+- [x] **Integration tests** vs local Supabase Postgres — every repository, RLS
+      isolation (A can't read/write B; anon sees nothing), and token-never-to-client.
+- [x] Unit tests (mocked) for auth + all authed routes.
+
+**Carried into a later phase:**
+
+- [ ] Email/password + **Apple Sign-In** client flows (iOS, Phase 5) — server JWT
+      verification already works for any Supabase Auth provider.
+- [ ] Explicit privacy-acknowledgement endpoint (`profilesRepo.markPrivacyAcknowledged`
+      exists; wire a `POST /api/onboarding/privacy` route when the iOS flow lands).
 - [ ] Wire **Sentry** (server) with payload scrubbing for financial data.
 
 ## Phase 3 — Plaid + transaction sync (Roadmap Weeks 3, build order 3–4)
@@ -124,12 +130,15 @@ money movement, multi-user/shared budgets, advanced category breakdowns.
 
 ## Suggested next prompt for Claude
 
-> Implement **Phase 2 (auth + persistence)** for Nudget. Integrate Supabase Auth
-> with JWT verification in `src/lib/api/auth.ts`, enforce per-user scoping, and
-> wire `GET /api/me`, `POST /api/onboarding/paycheck` (persist the schedule),
-> and `POST /api/feedback` (persist) to their repositories. Add an account-deletion
->
-> - Plaid-disconnect endpoint. Add integration tests against a local Supabase
->   Postgres for every repository, including RLS isolation (user A cannot read user
->   B's rows) and "tokens are never returned to the client". Keep tests mandatory;
->   do not build iOS/WidgetKit/APNs yet.
+> Implement **Phase 3 (Plaid Sandbox + transaction sync)** for Nudget at `~/nudget`.
+> Add the `plaid` SDK and a server-only Plaid client built from validated env. Wire
+> `POST /api/plaid/link-token` (return only the link_token), `POST /api/plaid/exchange-public-token`
+> (exchange, **encrypt** the access token via `lib/crypto/tokenCrypto`, store via
+> `plaidItemsRepo.create`, fetch accounts), `POST /api/plaid/sync` (cursor-based
+> `/transactions/sync`: upsert added/modified, delete removed, advance cursor only on
+> success), and `POST /api/plaid/webhook` (verify signature, enqueue sync). Wire
+> `GET /api/transactions` and `POST /api/transactions/:id/ignore`. All endpoints
+> auth-gated and user-scoped. Add tests: unit tests for sync cursor/upsert/delete logic
+> with a mocked Plaid client, and integration tests for the new repositories paths.
+> Keep tokens server-side only and never logged; tests mandatory; do not build
+> iOS/WidgetKit/APNs yet.

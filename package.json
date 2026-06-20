@@ -18,6 +18,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "demo:runway": "NUDGET_DEMO=1 vitest run src/scripts/demoRunway.test.ts --reporter=basic"
   },
   "dependencies": {

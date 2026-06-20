@@ -78,4 +78,23 @@ export const plaidItemsRepo = {
     const { error } = await getSupabaseAdmin().from('plaid_items').delete().eq('id', itemId);
     if (error) throw error;
   },
+
+  /**
+   * Ownership-scoped disconnect. Deletes the item only if it belongs to
+   * `userId`. Returns true if a row was deleted, false if no such item exists
+   * for this user (caller maps that to 404). Cascades to accounts/transactions.
+   *
+   * TODO(phase-3): also call Plaid `/item/remove` before deleting the row so the
+   * token is invalidated upstream, not just locally.
+   */
+  async removeOwned(userId: string, itemId: string): Promise<boolean> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('plaid_items')
+      .delete()
+      .eq('id', itemId)
+      .eq('user_id', userId) // ownership guard — never delete another user's item
+      .select('id');
+    if (error) throw error;
+    return Array.isArray(data) && data.length > 0;
+  },
 };

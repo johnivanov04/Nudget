@@ -1,19 +1,21 @@
 /**
  * POST /api/feedback
  *
- * Phase 1: validates the feedback payload (the stable contract the app uses).
- * Persistence is deferred to Phase 2 once auth + DB are wired.
- *
- * Privacy: free_text must be screened/minimized before storage and must NEVER
- * be forwarded to third-party analytics (see lib/analytics/sanitize).
- *
- * TODO(phase-2): authenticate and persist via feedbackEventsRepo.insert.
+ * Authenticates, validates, and persists user feedback tied to an event
+ * (bill / nudge / runway / saved-fee). Privacy: `free_text` is stored as-is for
+ * the user's own record but must NEVER be forwarded to third-party analytics
+ * (see lib/analytics/sanitize); analytics receive only the event_type + rating.
  */
 import type { NextRequest } from 'next/server';
+import { getUserFromRequest } from '@/lib/api/auth';
 import { feedbackSchema } from '@/lib/api/schemas';
-import { ok, badRequest } from '@/lib/api/responses';
+import { feedbackEventsRepo } from '@/lib/db/repositories';
+import { ok, badRequest, unauthorized } from '@/lib/api/responses';
 
 export async function POST(req: NextRequest) {
+  const user = await getUserFromRequest(req);
+  if (!user) return unauthorized();
+
   let json: unknown;
   try {
     json = await req.json();
@@ -26,12 +28,14 @@ export async function POST(req: NextRequest) {
     return badRequest('Invalid feedback payload', parsed.error.flatten());
   }
 
-  return ok(
-    {
-      accepted: true,
-      persisted: false,
-      note: 'Phase 1: validated but not persisted (auth + DB land in Phase 2).',
-    },
-    { status: 202 },
-  );
+  const body = parsed.data;
+  const saved = await feedbackEventsRepo.insert({
+    user_id: user.userId,
+    event_type: body.eventType,
+    event_id: body.eventId ?? null,
+    rating: body.rating ?? null,
+    free_text: body.freeText ?? null,
+  });
+
+  return ok({ id: saved.id, accepted: true, persisted: true }, { status: 201 });
 }
