@@ -1,32 +1,42 @@
 /**
- * GET /api/widget/snapshot
+ * GET /api/widget/snapshot — the minimal, privacy-aware snapshot the iOS widget
+ * renders. Reads the cached `runway_snapshots` row.
  *
- * Returns the minimal, privacy-aware snapshot the iOS widget renders. Pass
- * `?demo=1` (and optionally `&privacy=1`) to get a snapshot computed from seed
- * data — this is how the widget UI is built before Plaid/DB exist.
- *
- * TODO(phase-4/8): authenticate, read the latest persisted runway_snapshot for
- * the user, apply their privacy-mode preference, and return it (cached).
+ * `?privacy=1` hides dollar amounts (lock-screen default). `?demo=1` (no auth)
+ * returns a snapshot computed from seed data for development.
  */
 import type { NextRequest } from 'next/server';
+import { getUserFromRequest } from '@/lib/api/auth';
+import { runwaySnapshotsRepo, profilesRepo } from '@/lib/db/repositories';
+import { snapshotRowToWidget } from '@/lib/services/snapshotView';
 import { buildRunwaySnapshot } from '@/lib/domain/snapshot';
 import { toWidgetSnapshot } from '@/lib/domain/widget';
 import { mockSnapshotInput } from '@/lib/mock/seedData';
-import { ok, notImplemented } from '@/lib/api/responses';
+import { todayInTimeZone } from '@/lib/domain/dateUtils';
+import { ok, unauthorized } from '@/lib/api/responses';
 
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
-  const demo = params.get('demo') === '1';
+  const privacyMode = params.get('privacy') === '1';
 
-  if (demo) {
-    const privacyMode = params.get('privacy') === '1';
+  if (params.get('demo') === '1') {
     const snapshot = buildRunwaySnapshot(mockSnapshotInput);
     return ok({ widget: toWidgetSnapshot(snapshot, { privacyMode }), source: 'seed' });
   }
 
-  return notImplemented({
-    endpoint: 'GET /api/widget/snapshot',
-    phase: 'Phase 4/8',
-    todo: 'Authenticate and return the latest persisted runway snapshot for the user (privacy-mode aware, cached). Use ?demo=1 to preview from seed data.',
+  const user = await getUserFromRequest(req);
+  if (!user) return unauthorized();
+
+  const row = await runwaySnapshotsRepo.getLatest(user.userId);
+  if (!row) {
+    return ok({ widget: null, status: 'needs_data' });
+  }
+
+  const now = new Date();
+  const profile = await profilesRepo.getById(user.userId);
+  const today = todayInTimeZone(profile?.timezone ?? 'America/Los_Angeles', now);
+
+  return ok({
+    widget: snapshotRowToWidget(row, { today, now: now.toISOString(), privacyMode }),
   });
 }

@@ -92,3 +92,24 @@ export function isBefore(a: IsoDate, b: IsoDate): boolean {
 export function isOnOrBefore(a: IsoDate, b: IsoDate): boolean {
   return toUTCDate(a).getTime() <= toUTCDate(b).getTime();
 }
+
+/**
+ * The calendar date "today" in a given IANA timezone. Pure given an injected
+ * `now` instant — the runway engine decides what "today" means in the user's
+ * own timezone rather than the server's. Falls back to UTC for a bad zone.
+ */
+export function todayInTimeZone(timeZone: string, now: Date): IsoDate {
+  try {
+    // 'en-CA' formats as YYYY-MM-DD.
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(now);
+  } catch {
+    return formatDate(
+      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
+    );
+  }
+}

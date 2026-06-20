@@ -10,6 +10,8 @@ import { getUserFromRequest } from '@/lib/api/auth';
 import { plaidSyncSchema } from '@/lib/api/schemas';
 import { plaidItemsRepo } from '@/lib/db/repositories';
 import { syncTransactionsForItem } from '@/lib/plaid/sync';
+import { runBillDetection } from '@/lib/services/bills';
+import { recomputeRunwayForUser } from '@/lib/services/runway';
 import { ok, badRequest, unauthorized, notFound, serverError } from '@/lib/api/responses';
 import type { PlaidItemRow } from '@/lib/db/types';
 
@@ -44,7 +46,20 @@ export async function POST(req: NextRequest) {
     for (const item of items) {
       results.push(await syncTransactionsForItem(item));
     }
-    return ok({ synced: results.length, results });
+
+    // After new transactions land, re-detect recurring bills and recompute the
+    // runway so the dashboard/widget reflect fresh data. Best-effort: a failure
+    // here should not fail the sync the client just performed.
+    let billsUpserted = 0;
+    try {
+      const detection = await runBillDetection(user.userId);
+      billsUpserted = detection.upserted;
+      await recomputeRunwayForUser(user.userId);
+    } catch {
+      // swallow — sync itself succeeded
+    }
+
+    return ok({ synced: results.length, results, billsUpserted });
   } catch {
     return serverError('Transaction sync failed');
   }

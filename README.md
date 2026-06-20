@@ -10,37 +10,47 @@ single, glanceable question using three numbers:
 - **Bills before payday**
 - **Safe to spend until payday**
 
-This repository is the **backend** (Phases 1–3 complete: foundation · auth/persistence ·
-Plaid Sandbox + transaction sync). The iOS app (SwiftUI), the home/lock-screen widget
-(WidgetKit), and push nudges (APNs) come in later phases.
+This repository is the **backend** (Phases 1–4 complete: foundation · auth/persistence ·
+Plaid sync · bill detection + runway persistence). The iOS app (SwiftUI), the
+home/lock-screen widget (WidgetKit), and push nudges (APNs) come in later phases.
 
 ---
 
 ## Current phase status
 
-**Phases 1–3 complete:** foundation · auth + persistence · Plaid Sandbox + transaction sync.
+**Phases 1–4 complete:** foundation · auth + persistence · Plaid sync · bill detection + runway persistence.
 
 | Area                                                                   | Status                            |
 | ---------------------------------------------------------------------- | --------------------------------- |
 | Next.js + TypeScript project                                           | ✅                                |
 | Lint / format / typecheck / test tooling                               | ✅                                |
 | Env validation (zod)                                                   | ✅                                |
-| Postgres migration + RLS (9 core tables)                               | ✅                                |
+| Postgres migrations + RLS (9 core tables)                              | ✅                                |
 | Server-side types + per-table repositories                             | ✅                                |
 | Plaid access-token encryption (AES-256-GCM)                            | ✅                                |
 | Pure runway engine (payday, daily spend, classification, runway, risk) | ✅ unit-tested                    |
 | Supabase Auth JWT verification + per-user scoping                      | ✅ (Phase 2)                      |
-| `GET /api/me`, onboarding & feedback persistence                       | ✅ (Phase 2)                      |
 | Account deletion + Plaid-item disconnect endpoints                     | ✅ (Phase 2)                      |
 | Integration tests (repos + RLS isolation + token safety)               | ✅ written, run vs local Supabase |
-| **Plaid client + link-token / public-token exchange**                  | ✅ (Phase 3)                      |
-| **Cursor-based transaction sync (`/transactions/sync`)**               | ✅ (Phase 3)                      |
-| **Signature-verified Plaid webhook (ES256, Node crypto)**              | ✅ (Phase 3)                      |
-| **`GET /api/transactions` + ignore**                                   | ✅ (Phase 3)                      |
-| API route structure (18 endpoints)                                     | ✅ (12 live, 6 documented stubs)  |
+| Plaid client + link-token / public-token exchange                      | ✅ (Phase 3)                      |
+| Cursor-based transaction sync (`/transactions/sync`)                   | ✅ (Phase 3)                      |
+| Signature-verified Plaid webhook (ES256, Node crypto)                  | ✅ (Phase 3)                      |
+| **Recurring-bill detection (normalize → cadence → confidence)**        | ✅ (Phase 4) unit-tested          |
+| **DB-backed runway recompute + persisted `runway_snapshots`**          | ✅ (Phase 4)                      |
+| **`/runway/current` + `/widget/snapshot` read cached snapshot**        | ✅ (Phase 4)                      |
+| API route structure (20 endpoints)                                     | ✅ (16 live, 4 documented stubs)  |
 
-Runway snapshot persistence (Phase 4) and the iOS surfaces are **not** built yet —
+The iOS app (SwiftUI), WidgetKit, and APNs nudges are **not** built yet —
 see [`NEXT_STEPS.md`](./NEXT_STEPS.md).
+
+### Data flow
+
+```
+Plaid → /api/plaid/sync → transactions → bill detection → runway recompute → runway_snapshots
+                                                                  ↑
+        confirm bill / ignore transaction ───────────────────────┘  (recompute on change)
+        /api/runway/current + /api/widget/snapshot read the cached snapshot
+```
 
 ### Auth
 
@@ -50,7 +60,9 @@ scopes every data access to the returned user id; RLS is the backstop. Authed
 endpoints: `GET /api/me`, `POST /api/onboarding/paycheck`, `POST /api/feedback`,
 `DELETE /api/account`, `DELETE /api/plaid/item/:id`, `POST /api/plaid/link-token`,
 `POST /api/plaid/exchange-public-token`, `POST /api/plaid/sync`,
-`GET /api/transactions`, `POST /api/transactions/:id/ignore`.
+`GET /api/transactions`, `POST /api/transactions/:id/ignore`,
+`GET /api/bills/detected`, `POST /api/bills/:id/confirm`,
+`POST /api/runway/recalculate`, `GET /api/runway/current`, `GET /api/widget/snapshot`.
 
 `POST /api/plaid/webhook` is **not** user-authed — it is authenticated by Plaid's
 signed `Plaid-Verification` JWT, which the server verifies (signature + body hash +
@@ -216,10 +228,16 @@ business-logic modules:
 - API request schemas + runway service
 - Auth: bearer extraction + JWT verification (valid / invalid / error / throw)
 - API route handlers: `/me`, onboarding, feedback, account delete, Plaid disconnect (401 / 400 / 404 / success, mocked auth + repos), plus the public demo routes
-- **Plaid mappers (account/transaction → DB rows, account fallback, unknown-account skip)**
-- **Transaction sync: cursor pagination + "advance cursor only on success" (mocked Plaid client)**
-- **Plaid webhook ES256 verification (valid / tampered body / wrong key / replay / bad alg / key-fetch failure)**
-- **Plaid route handlers: link-token, exchange (token never returned), sync, webhook (401 on bad signature), transactions list + ignore**
+- Plaid mappers (account/transaction → DB rows, account fallback, unknown-account skip)
+- Transaction sync: cursor pagination + "advance cursor only on success" (mocked Plaid client)
+- Plaid webhook ES256 verification (valid / tampered body / wrong key / replay / bad alg / key-fetch failure)
+- Plaid route handlers: link-token, exchange (token never returned), sync, webhook (401 on bad signature), transactions list + ignore
+- **Recurring-bill detection (merchant normalization, cadence, confidence, irregular-series rejection, inflow exclusion)**
+- **`todayInTimeZone` (per-user local date)**
+- **Snapshot-row views (dashboard + privacy-mode widget projections)**
+- **Bill-detection service (persists candidates, skips user-confirmed/rejected keys)**
+- **Runway recompute service (DB → engine → persisted snapshot; needs_schedule / needs_data)**
+- **Bills + runway route handlers: detected, confirm (recomputes), recalculate, current, widget**
 
 ### Integration tests (local Supabase)
 

@@ -82,3 +82,16 @@ export const ignoreTransactionSchema = z.object({
   ignored: z.boolean().default(true),
 });
 export type IgnoreTransactionBody = z.infer<typeof ignoreTransactionSchema>;
+
+// --- Bills (Phase 4) -------------------------------------------------------
+
+const isoDateForBill = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be a YYYY-MM-DD date');
+
+export const confirmBillSchema = z.object({
+  /** Confirm (default) or reject the detected bill. */
+  status: z.enum(['confirmed', 'rejected']).default('confirmed'),
+  amountEstimate: z.number().finite().nonnegative().optional(),
+  nextExpectedDate: isoDateForBill.optional(),
+  cadence: z.enum(['weekly', 'biweekly', 'monthly', 'annual']).optional(),
+});
+export type ConfirmBillBody = z.infer<typeof confirmBillSchema>;

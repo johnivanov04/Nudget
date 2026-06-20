@@ -25,6 +25,8 @@ const h = vi.hoisted(() => ({
   syncItem: vi.fn(),
   verifyWebhook: vi.fn(),
   getEnv: vi.fn(),
+  runBillDetection: vi.fn(),
+  recomputeRunway: vi.fn(),
 }));
 
 vi.mock('@/lib/api/auth', () => ({ getUserFromRequest: h.getUserFromRequest }));
@@ -51,6 +53,8 @@ vi.mock('@/lib/db/repositories', () => ({
 vi.mock('@/lib/plaid/sync', () => ({ syncTransactionsForItem: h.syncItem }));
 vi.mock('@/lib/plaid/webhook', () => ({ verifyPlaidWebhook: h.verifyWebhook }));
 vi.mock('@/lib/env', () => ({ getEnv: h.getEnv }));
+vi.mock('@/lib/services/bills', () => ({ runBillDetection: h.runBillDetection }));
+vi.mock('@/lib/services/runway', () => ({ recomputeRunwayForUser: h.recomputeRunway }));
 
 import { POST as linkToken } from './plaid/link-token/route';
 import { POST as exchange } from './plaid/exchange-public-token/route';
@@ -72,6 +76,8 @@ function post(url: string, body?: unknown, headers: Record<string, string> = {})
 beforeEach(() => {
   vi.clearAllMocks();
   h.getEnv.mockReturnValue({ PLAID_WEBHOOK_URL: undefined });
+  h.runBillDetection.mockResolvedValue({ detected: 0, upserted: 0 });
+  h.recomputeRunway.mockResolvedValue({ status: 'ok' });
 });
 
 describe('POST /api/plaid/link-token', () => {
@@ -175,6 +181,9 @@ describe('POST /api/plaid/sync', () => {
     expect(res.status).toBe(200);
     expect((await res.json()).synced).toBe(2);
     expect(h.syncItem).toHaveBeenCalledTimes(2);
+    // After syncing, detection + runway recompute run for the user.
+    expect(h.runBillDetection).toHaveBeenCalledWith('user-A');
+    expect(h.recomputeRunway).toHaveBeenCalledWith('user-A');
   });
 });
 
@@ -273,6 +282,8 @@ describe('POST /api/transactions/:id/ignore', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ id: 'tx1', ignored: true });
     expect(h.setIgnored).toHaveBeenCalledWith('user-A', 'tx1', true);
+    // The runway is recomputed so the change is reflected immediately.
+    expect(h.recomputeRunway).toHaveBeenCalledWith('user-A');
   });
 
   it('can un-ignore', async () => {

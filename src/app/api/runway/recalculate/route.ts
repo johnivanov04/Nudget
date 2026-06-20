@@ -1,37 +1,35 @@
 /**
  * POST /api/runway/recalculate
  *
- * Phase 1: computes a runway snapshot directly from a posted scenario using the
- * pure engine — this makes the core calculation exercisable over HTTP without
- * Plaid or a database. Pass `?demo=1` to compute from the bundled seed data.
+ * Auth-gated. Loads the user's accounts, transactions, bills, and schedule from
+ * the database, recomputes the runway with the pure engine, and persists a
+ * `runway_snapshots` row. Returns the fresh snapshot.
  *
- * TODO(phase-4): replace the posted scenario with "load this user's accounts,
- * transactions, bills, and schedule, recompute, and persist a runway_snapshot".
+ * `?demo=1` (no auth) computes from the bundled seed data — kept for the iOS
+ * team to build against before a user has linked real data.
  */
 import type { NextRequest } from 'next/server';
-import { recalculateSchema } from '@/lib/api/schemas';
-import { recalculateBodyToSnapshot } from '@/lib/api/runwayService';
+import { getUserFromRequest } from '@/lib/api/auth';
+import { recomputeRunwayForUser } from '@/lib/services/runway';
 import { buildRunwaySnapshot } from '@/lib/domain/snapshot';
 import { mockSnapshotInput } from '@/lib/mock/seedData';
-import { ok, badRequest } from '@/lib/api/responses';
+import { ok, unauthorized, serverError } from '@/lib/api/responses';
 
 export async function POST(req: NextRequest) {
-  const demo = req.nextUrl.searchParams.get('demo') === '1';
-  if (demo) {
+  if (req.nextUrl.searchParams.get('demo') === '1') {
     return ok({ snapshot: buildRunwaySnapshot(mockSnapshotInput), source: 'seed' });
   }
 
-  let json: unknown;
+  const user = await getUserFromRequest(req);
+  if (!user) return unauthorized();
+
   try {
-    json = await req.json();
+    const result = await recomputeRunwayForUser(user.userId);
+    if (result.status === 'needs_schedule') {
+      return ok({ status: 'needs_schedule', snapshot: null, source: 'db' });
+    }
+    return ok({ status: result.status, snapshot: result.snapshot, source: 'db' });
   } catch {
-    return badRequest('Request body must be valid JSON (or use ?demo=1)');
+    return serverError('Failed to recompute runway');
   }
-
-  const parsed = recalculateSchema.safeParse(json);
-  if (!parsed.success) {
-    return badRequest('Invalid runway recalculate payload', parsed.error.flatten());
-  }
-
-  return ok({ snapshot: recalculateBodyToSnapshot(parsed.data), source: 'request' });
 }

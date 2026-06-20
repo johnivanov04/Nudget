@@ -66,21 +66,32 @@ the API route skeleton (3 live endpoints + 11 documented stubs).
 - [ ] Live Plaid Sandbox end-to-end smoke test (needs real Plaid credentials; the suite
       uses a mocked Plaid client).
 
-## Phase 4 — Bill detection + runway persistence (Roadmap Weeks 6–7, build order 6–7)
+## ✅ Phase 4 — Bill detection + runway persistence (Roadmap Weeks 6–7) (DONE)
 
 **Goal:** the dashboard answers the question for real data.
 
-- [ ] Recurring-bill **detection job**: merchant normalization, cadence/amount/date
-      scoring, confidence → `recurringBillsRepo`. (The engine already consumes bills.)
-- [ ] **`GET /api/bills/detected`** + **`POST /api/bills/:id/confirm`** (confirmed
-      data overrides guesses; low-confidence shown as "likely").
-- [ ] **`GET /api/runway/current`** → `runwaySnapshotsRepo.getLatest`.
-- [ ] Switch **`POST /api/runway/recalculate`** from posted-scenario to
-      "load this user's accounts/transactions/bills/schedule via the DB→engine
-      mappers, recompute with `buildRunwaySnapshot`, persist a `runway_snapshots` row".
-- [ ] **`GET /api/widget/snapshot`** → return the latest persisted snapshot
-      (privacy-mode aware). The demo path stays for development.
-- [ ] Tests for the detection algorithm + DB-backed recompute.
+- [x] Pure recurring-bill **detection** (`src/lib/domain/billDetection.ts`): merchant
+      normalization, cadence inference, irregular-series rejection, amount/cadence/count
+      confidence. Service `runBillDetection` persists candidates and never overwrites
+      user-confirmed/rejected merchants. Migration `0002` adds `merchant_key` +
+      `unique(user_id, merchant_key)` for idempotent upserts.
+- [x] **`GET /api/bills/detected`** + **`POST /api/bills/:id/confirm`** (confirm/edit/reject;
+      confirmed data overrides guesses; candidates surfaced as "likely").
+- [x] DB-backed recompute service (`src/lib/services/runway.ts`): loads accounts/
+      transactions/bills/schedule via `db/mappers`, computes with `buildRunwaySnapshot`,
+      persists a `runway_snapshots` row; returns `needs_schedule` / `needs_data`.
+- [x] **`POST /api/runway/recalculate`** (DB recompute; `?demo=1` kept),
+      **`GET /api/runway/current`** + **`GET /api/widget/snapshot`** read the cached row
+      (privacy-mode aware, with last-updated + stale).
+- [x] Detection runs after `POST /api/plaid/sync`; confirm/ignore trigger a recompute.
+- [x] `todayInTimeZone` for per-user local "today". Unit tests for detection, services,
+      snapshot views, and all routes; integration test for the idempotent detection upsert.
+
+**Carried forward:**
+
+- [ ] Detection currently scans up to 500 transactions / 180 days — paginate for
+      power users before scale.
+- [ ] Move post-sync detection + recompute onto a queue (Phase 8) so sync returns fast.
 
 ## Phase 5 — iOS app (SwiftUI) (Roadmap Week 4 + build order 8)
 
@@ -137,14 +148,15 @@ money movement, multi-user/shared budgets, advanced category breakdowns.
 
 ## Suggested next prompt for Claude
 
-> Implement **Phase 4 (bill detection + runway persistence)** for Nudget at `~/nudget`.
-> Build a pure recurring-bill detection module (merchant normalization, cadence/amount/date
-> scoring → confidence) over a user's synced transactions, persisting candidates via
-> `recurringBillsRepo`. Wire `GET /api/bills/detected` and `POST /api/bills/:id/confirm`
-> (confirmed data overrides guesses). Replace `POST /api/runway/recalculate` and
-> `GET /api/runway/current`/`GET /api/widget/snapshot` so they load the user's accounts,
-> transactions, bills, and schedule from the DB (via the existing `db/mappers` + engine),
-> compute with `buildRunwaySnapshot`, and persist/read a `runway_snapshots` row. After an
-> ignore/confirm, recompute the snapshot. All endpoints auth-gated and user-scoped. Unit-test
-> the detection algorithm thoroughly + the DB-backed recompute (mocked repos); tests mandatory;
-> do not build iOS/WidgetKit/APNs yet.
+> Implement the **backend slice of nudges + analytics** for Nudget at `~/nudget` (no APNs
+> delivery, no iOS yet). Build a pure nudge engine (`src/lib/domain/nudges.ts`): given a
+> runway snapshot + user notification preferences + recent nudge history, decide which
+> nudges fire (morning runway, bill-approach, danger-state), select a non-shaming
+> `copy_key`, and enforce throttling (≤ 1 morning + 1 bill/risk per day unless opted in).
+> Add a `device_tokens` table (migration 0003) + `POST /api/device/register` and notification
+> preferences on the profile. Record sent nudges via `nudgeEventsRepo`; wire
+> `nudge_feedback_submitted` through `POST /api/feedback`. Add the privacy-safe analytics
+> emit path (using `lib/analytics/sanitize`) for the core funnel events, and read-only admin
+> endpoints (sync health, bill-prediction quality, funnel) that never expose raw financial
+> data. Unit-test the nudge engine (eligibility, throttling, copy selection) + analytics
+> sanitization thoroughly; tests mandatory; defer actual APNs push + iOS to later phases.

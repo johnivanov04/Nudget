@@ -163,6 +163,35 @@ d('repositories (integration)', () => {
     expect(Number(updated.amount_estimate)).toBe(45);
   });
 
+  it('recurringBillsRepo: upsertDetected is idempotent on (user_id, merchant_key)', async () => {
+    await recurringBillsRepo.upsertDetected([
+      {
+        user_id: user.userId,
+        merchant_key: 'spotify',
+        merchant_name: 'Spotify',
+        amount_estimate: 9.99,
+        cadence: 'monthly',
+        status: 'candidate',
+      },
+    ]);
+    // Re-run with an updated amount: same key updates in place, no duplicate.
+    await recurringBillsRepo.upsertDetected([
+      {
+        user_id: user.userId,
+        merchant_key: 'spotify',
+        merchant_name: 'Spotify',
+        amount_estimate: 11.99,
+        cadence: 'monthly',
+        status: 'candidate',
+      },
+    ]);
+    const rows = (await recurringBillsRepo.listByUser(user.userId)).filter(
+      (b) => b.merchant_key === 'spotify',
+    );
+    expect(rows).toHaveLength(1);
+    expect(Number(rows[0]!.amount_estimate)).toBe(11.99);
+  });
+
   it('runwaySnapshotsRepo: insert + getLatest', async () => {
     await runwaySnapshotsRepo.insert({
       user_id: user.userId,

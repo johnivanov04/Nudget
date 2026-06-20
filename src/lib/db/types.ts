@@ -97,6 +97,8 @@ export interface RecurringBillRow {
   id: string;
   user_id: string;
   merchant_name: string | null;
+  /** Normalized merchant grouping key from detection (null for manual bills). */
+  merchant_key: string | null;
   amount_estimate: number;
   cadence: string | null; // 'monthly' | 'weekly' | 'annual' | ...
   next_expected_date: string | null;

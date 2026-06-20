@@ -9,6 +9,7 @@ import {
   isIsoDate,
   isWeekend,
   toUTCDate,
+  todayInTimeZone,
 } from './dateUtils';
 
 describe('dateUtils', () => {
@@ -75,6 +76,21 @@ describe('dateUtils', () => {
       expect(isWeekend('2026-06-20')).toBe(true); // Sat
       expect(isWeekend('2026-06-21')).toBe(true); // Sun
       expect(isWeekend('2026-06-22')).toBe(false); // Mon
+    });
+  });
+
+  describe('todayInTimeZone', () => {
+    it('returns the local calendar date for the zone', () => {
+      // 2026-06-20T05:30:00Z is still 2026-06-19 (22:30) in Los Angeles.
+      const instant = new Date('2026-06-20T05:30:00.000Z');
+      expect(todayInTimeZone('America/Los_Angeles', instant)).toBe('2026-06-19');
+      expect(todayInTimeZone('UTC', instant)).toBe('2026-06-20');
+      // Tokyo is already the next day.
+      expect(todayInTimeZone('Asia/Tokyo', instant)).toBe('2026-06-20');
+    });
+    it('falls back to UTC for an invalid timezone', () => {
+      const instant = new Date('2026-06-20T12:00:00.000Z');
+      expect(todayInTimeZone('Not/AZone', instant)).toBe('2026-06-20');
     });
   });
 });
