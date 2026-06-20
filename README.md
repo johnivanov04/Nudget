@@ -1,0 +1,237 @@
+# Nudget
+
+> Paycheck runway widget. One question: **"Am I safe to spend before payday?"**
+
+Nudget is an iOS-first paycheck runway tool. It is **not** a full budgeting app, not a
+Mint replacement, and it does **not** promise real-time purchase alerts. It answers a
+single, glanceable question using three numbers:
+
+- **Spent today**
+- **Bills before payday**
+- **Safe to spend until payday**
+
+This repository is the **backend foundation** (Phase 1). The iOS app (SwiftUI), the
+home/lock-screen widget (WidgetKit), and push nudges (APNs) come in later phases.
+
+---
+
+## Current phase status
+
+**Phase 1 — Backend foundation: complete.**
+
+| Area                                                                   | Status                                        |
+| ---------------------------------------------------------------------- | --------------------------------------------- |
+| Next.js + TypeScript project                                           | ✅                                            |
+| Lint / format / typecheck / test tooling                               | ✅                                            |
+| Env validation (zod)                                                   | ✅                                            |
+| Postgres migration + RLS (9 core tables)                               | ✅                                            |
+| Server-side types + per-table repositories                             | ✅                                            |
+| Plaid access-token encryption (AES-256-GCM)                            | ✅                                            |
+| Pure runway engine (payday, daily spend, classification, runway, risk) | ✅ unit-tested                                |
+| Seed/mock data + runnable demo                                         | ✅                                            |
+| API route structure (14 endpoints)                                     | ✅ (3 live + validation, 11 documented stubs) |
+
+Plaid linking, transaction sync, auth-gated persistence, and the iOS surfaces are
+**not** built yet — see [`NEXT_STEPS.md`](./NEXT_STEPS.md).
+
+---
+
+## Architecture
+
+```
+Plaid ──► backend sync ──► runway snapshot ──► iOS app cache ──► WidgetKit
+            (Next.js)        (pure engine)        (later)          (later)
+                │
+          Supabase Postgres
+```
+
+- **Backend/web/admin:** Next.js (App Router) + TypeScript
+- **Database:** Supabase Postgres (Row Level Security on every table)
+- **Auth:** Supabase Auth (JWT) — _integration is Phase 2_
+- **Bank data:** Plaid (Sandbox first) — _integration is Phase 3_
+- **Tests:** Vitest (unit tests for all core business logic, required from day one)
+
+### The runway engine (pure, no I/O)
+
+All financial math lives in `src/lib/domain/` as pure, deterministic functions that take
+a caller-supplied "today" (no system clock) so they are trivially testable:
+
+```
+safe_to_spend  = available_cash
+               − confirmed_bills_before_payday
+               − predicted_bills_before_payday
+               − safety_buffer
+
+daily_safe_spend = max(safe_to_spend, 0) / max(days_until_payday, 1)
+```
+
+| Module              | Responsibility                                                     |
+| ------------------- | ------------------------------------------------------------------ |
+| `dateUtils.ts`      | Calendar-date math (UTC-anchored, DST-safe)                        |
+| `payday.ts`         | Next payday, next 3 paydays, days-until-payday, weekend rules      |
+| `classification.ts` | Spending vs income / transfer / card-payment / ignored / override  |
+| `dailySpend.ts`     | "Spent today" + pending flag                                       |
+| `runway.ts`         | Safe-to-spend + daily-safe-spend                                   |
+| `risk.ts`           | `safe` / `caution` / `danger` + non-shaming reason key             |
+| `freshness.ts`      | Stale / missing-data detection (every number carries last-updated) |
+| `snapshot.ts`       | Composes all of the above into one runway snapshot                 |
+| `widget.ts`         | Minimal, privacy-mode-aware projection for the widget              |
+
+---
+
+## Getting started
+
+### Prerequisites
+
+- Node.js ≥ 20 (developed on v24)
+- A Supabase project (for the DB-backed phases) and Plaid Sandbox credentials
+  (for Phase 3). **Neither is required** to run the tests or the runway demo.
+
+### Install
+
+```bash
+npm install
+```
+
+### Environment variables
+
+Copy the example file and fill it in:
+
+```bash
+cp .env.example .env.local
+```
+
+| Variable                        | Scope           | Purpose                                         |
+| ------------------------------- | --------------- | ----------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | public          | Supabase project URL                            |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public          | Supabase anon key (RLS-scoped)                  |
+| `SUPABASE_SERVICE_ROLE_KEY`     | **server only** | Service-role key for server jobs                |
+| `PLAID_CLIENT_ID`               | **server only** | Plaid client id                                 |
+| `PLAID_SECRET`                  | **server only** | Plaid secret (never sent to client)             |
+| `PLAID_ENV`                     | server          | `sandbox` \| `development` \| `production`      |
+| `TOKEN_ENCRYPTION_KEY`          | **server only** | 32-byte key (64 hex chars) for token encryption |
+
+Generate an encryption key:
+
+```bash
+openssl rand -hex 32
+```
+
+Env is validated by `src/lib/env.ts` (zod). The server fails fast with a readable
+error if anything is missing or malformed. The build does **not** require env vars —
+Supabase clients are initialized lazily.
+
+### Run the runway demo (no Plaid, no DB)
+
+```bash
+npm run demo:runway
+```
+
+This computes a full runway snapshot from the seed scenario in
+`src/lib/mock/seedData.ts` and prints spent-today, bills, safe-to-spend, risk level,
+and the privacy-mode lock-screen view.
+
+### Run the dev server
+
+```bash
+npm run dev
+# then:
+curl 'http://localhost:3000/api/health'
+curl 'http://localhost:3000/api/widget/snapshot?demo=1'
+curl 'http://localhost:3000/api/widget/snapshot?demo=1&privacy=1'
+curl -X POST 'http://localhost:3000/api/runway/recalculate?demo=1'
+```
+
+---
+
+## Database migrations
+
+The schema lives in `supabase/migrations/0001_init.sql` (9 core tables, Postgres enums,
+indexes, `updated_at` triggers, **RLS enabled with user-scoped policies**, and a trigger
+that auto-creates a `profiles` row for each new auth user).
+
+Apply it with the Supabase CLI against a local stack:
+
+```bash
+supabase start          # local Postgres + Auth
+supabase db reset       # applies migrations/0001_init.sql + seeds supabase/seed.sql
+```
+
+Or run the SQL against your project's database directly. `supabase/seed.sql` populates a
+fictional demo user/account/bills for local development (it is **not** used by the engine
+tests, which use the in-code seed).
+
+> **Security:** `plaid_items.encrypted_access_token` stores **ciphertext only**. The
+> plaintext Plaid access token is never stored, never returned to the client, and never
+> logged. Analytics never receive raw merchant names, account masks, exact balances,
+> transaction IDs, or exact amounts (enforced by `src/lib/analytics/sanitize.ts`).
+
+---
+
+## Testing
+
+```bash
+npm test            # run the full suite once
+npm run test:watch  # watch mode
+npm run test:coverage
+```
+
+Tests are **mandatory** and cover normal, edge, and failure cases. See the test command
+output and the list of tested modules at the bottom of the Phase 1 summary, or just run
+`npm test`.
+
+Tested business-logic modules:
+
+- Payday date calculation & days-until-payday (weekly/biweekly/semimonthly/monthly/custom, weekend rules, overrides)
+- Daily spend calculation
+- Transaction classification / exclusion (income, transfer, card payment, ignored, user override)
+- Safe-to-spend runway formula (incl. **negative runway** + divide-by-zero edges)
+- Risk-level assignment
+- Data freshness (**stale / missing data** edges)
+- Snapshot composition (full pipeline over seed data)
+- Widget projection (privacy mode)
+- Token encryption (round-trip, tamper detection, wrong key)
+- Env validation (missing / malformed vars)
+- Analytics sanitization (forbidden keys dropped, amounts bucketed)
+- DB → engine mappers
+- API request schemas + runway service
+- API route handlers (the 3 live endpoints + a stub)
+
+---
+
+## Scripts
+
+| Script                | Description                            |
+| --------------------- | -------------------------------------- |
+| `npm run dev`         | Start the Next.js dev server           |
+| `npm run build`       | Production build                       |
+| `npm test`            | Run the Vitest suite                   |
+| `npm run typecheck`   | `tsc --noEmit`                         |
+| `npm run lint`        | `next lint`                            |
+| `npm run format`      | Prettier write                         |
+| `npm run demo:runway` | Print a runway snapshot from seed data |
+
+---
+
+## Project layout
+
+```
+src/
+  app/
+    api/                  # 14 route handlers (3 live, 11 documented 501 stubs) + /health
+    page.tsx, layout.tsx  # minimal status page (backend is API-first)
+  lib/
+    domain/               # PURE runway engine (no I/O) + tests
+    crypto/               # AES-256-GCM Plaid token encryption + tests
+    db/
+      types.ts            # one row type per table
+      mappers.ts          # pure DB-row -> engine mappers + tests
+      repositories/       # per-table typed Supabase data access
+    api/                  # request schemas, responses, auth stub, runway service
+    analytics/            # privacy-safe analytics sanitizer
+    mock/                 # in-code seed scenario
+  scripts/                # runnable runway demo
+supabase/
+  migrations/0001_init.sql
+  seed.sql
+```
