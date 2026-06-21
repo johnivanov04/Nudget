@@ -249,10 +249,14 @@ business-logic modules:
 - **Nudge service (plan + record + throttle; preview without recording)**
 - **Notification + admin route handlers: device register (token never echoed), preferences GET/POST, test preview, admin metrics (401/403/200)**
 
-### Integration tests (local Supabase)
+### Integration tests + end-to-end verification
+
+> **See [`VERIFY.md`](./VERIFY.md)** for the full runbook: Stage 1 (DB + RLS +
+> token safety against a real Supabase — hosted or local Docker) and Stage 2 (the
+> live Plaid Sandbox pipeline via `npm run verify:live`).
 
 `tests/integration/*.itest.ts` exercise the **real repositories, RLS isolation,
-and token safety** against a local Supabase Postgres. They self-skip unless the
+and token safety** against a real Supabase Postgres. They self-skip unless the
 DB env is provided, so they never block `npm test`.
 
 ```bash
