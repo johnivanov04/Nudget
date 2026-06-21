@@ -10,6 +10,7 @@ import {
   isWeekend,
   toUTCDate,
   todayInTimeZone,
+  hourInTimeZone,
 } from './dateUtils';
 
 describe('dateUtils', () => {
@@ -91,6 +92,20 @@ describe('dateUtils', () => {
     it('falls back to UTC for an invalid timezone', () => {
       const instant = new Date('2026-06-20T12:00:00.000Z');
       expect(todayInTimeZone('Not/AZone', instant)).toBe('2026-06-20');
+    });
+  });
+
+  describe('hourInTimeZone', () => {
+    it('returns the local hour (0–23) for the zone', () => {
+      const instant = new Date('2026-06-20T15:00:00.000Z'); // 08:00 PT, 00:00 JST(+1d)
+      expect(hourInTimeZone('America/Los_Angeles', instant)).toBe(8);
+      expect(hourInTimeZone('UTC', instant)).toBe(15);
+      expect(hourInTimeZone('Asia/Tokyo', instant)).toBe(0);
+    });
+    it('normalizes midnight and bad zones', () => {
+      const midnightUtc = new Date('2026-06-20T00:00:00.000Z');
+      expect(hourInTimeZone('UTC', midnightUtc)).toBe(0);
+      expect(hourInTimeZone('Not/AZone', new Date('2026-06-20T09:00:00.000Z'))).toBe(9);
     });
   });
 });

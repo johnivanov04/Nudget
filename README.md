@@ -18,7 +18,7 @@ APNs push delivery, the iOS app (SwiftUI), and the WidgetKit widget come in late
 
 ## Current phase status
 
-**Phases 1–5 (backend) complete:** foundation · auth + persistence · Plaid sync · bill detection + runway persistence · nudge engine + analytics.
+**Phases 1–6 (backend) complete:** foundation · auth + persistence · Plaid sync · bill detection + runway persistence · nudge engine + analytics · scheduling + hardening. **DB + live Plaid pipeline verified end-to-end** (see [`VERIFY.md`](./VERIFY.md)).
 
 | Area                                                                   | Status                           |
 | ---------------------------------------------------------------------- | -------------------------------- |
@@ -41,9 +41,13 @@ APNs push delivery, the iOS app (SwiftUI), and the WidgetKit widget come in late
 | **Nudge engine (eligibility, throttle, non-shaming copy keys)**        | ✅ (Phase 5) unit-tested         |
 | **Device-token registration + notification preferences**               | ✅ (Phase 5)                     |
 | **Privacy-safe analytics event builders + admin metrics endpoint**     | ✅ (Phase 5)                     |
-| API route structure (25 endpoints)                                     | ✅ (21 live, 4 documented stubs) |
+| **Scheduled morning nudges (Vercel cron + `CRON_SECRET`)**             | ✅ (Phase 6) unit-tested         |
+| **Per-user rate limiting + error reporting w/ financial-data scrub**   | ✅ (Phase 6)                     |
+| **Privacy-acknowledgement endpoint**                                   | ✅ (Phase 6)                     |
+| API route structure (27 endpoints)                                     | ✅ (23 live, 4 documented stubs) |
 
-The actual APNs push delivery, the iOS app (SwiftUI), and WidgetKit are **not**
+The actual **APNs push delivery** (the cron decides + records nudges; sending the
+push needs Apple credentials), the iOS app (SwiftUI), and WidgetKit are **not**
 built yet — see [`NEXT_STEPS.md`](./NEXT_STEPS.md).
 
 ### Data flow
@@ -67,12 +71,19 @@ endpoints: `GET /api/me`, `POST /api/onboarding/paycheck`, `POST /api/feedback`,
 `GET /api/transactions`, `POST /api/transactions/:id/ignore`,
 `GET /api/bills/detected`, `POST /api/bills/:id/confirm`,
 `POST /api/runway/recalculate`, `GET /api/runway/current`, `GET /api/widget/snapshot`,
-`POST /api/device/register`, `GET|POST /api/nudges/preferences`, `POST /api/nudges/test`.
+`POST /api/device/register`, `GET|POST /api/nudges/preferences`, `POST /api/nudges/test`,
+`POST /api/onboarding/privacy`.
 
 `POST /api/plaid/webhook` is **not** user-authed — it is authenticated by Plaid's
 signed `Plaid-Verification` JWT, which the server verifies (signature + body hash +
 freshness) before trusting the payload. `GET /api/admin/metrics` is auth-gated **and**
 admin-gated (caller's id must be in `ADMIN_USER_IDS`); it returns aggregate counts only.
+`GET /api/cron/morning-nudges` is authenticated by the `CRON_SECRET` bearer (Vercel
+Cron, hourly — see `vercel.json`) and fires due users' morning nudges.
+
+Expensive endpoints (`/plaid/sync`, `/runway/recalculate`) are **rate-limited** per
+user; server errors are funneled through `lib/observability/report` which scrubs
+financial data before reporting.
 
 ---
 
@@ -246,8 +257,11 @@ business-logic modules:
 - Bills + runway route handlers: detected, confirm (recomputes), recalculate, current, widget
 - **Nudge engine (eligibility, per-channel toggles, danger-over-bill priority, daily throttle, stale/no-data handling, tone in copy key)**
 - **Analytics event builders (bucketing + forbidden-key stripping) and the admin allowlist gate**
-- **Nudge service (plan + record + throttle; preview without recording)**
-- **Notification + admin route handlers: device register (token never echoed), preferences GET/POST, test preview, admin metrics (401/403/200)**
+- Nudge service (plan + record + throttle; preview without recording)
+- Notification + admin route handlers: device register (token never echoed), preferences GET/POST, test preview, admin metrics (401/403/200)
+- **Cron auth + `hourInTimeZone` + due-user selection (per-timezone morning-hour match) + batch resilience**
+- **Rate limiter (window, reset, per-key) + the 429 path on sync**
+- **Error scrubbing (redacts tokens/balances/amounts at any depth) and the privacy-ack route**
 
 ### Integration tests + end-to-end verification
 

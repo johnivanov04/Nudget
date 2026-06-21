@@ -117,20 +117,25 @@ the API route skeleton (3 live endpoints + 11 documented stubs).
       non-shaming `copy_key` templates, tone, and the ≤ 1 morning + 1 bill/risk daily throttle.
 - [x] `planAndRecordNudges` records sends in `nudgeEventsRepo` (event nudges fire after sync);
       `previewNudges` powers `POST /api/nudges/test`; nudge feedback flows through `POST /api/feedback`.
+- [x] **Scheduled morning nudge**: `GET /api/cron/morning-nudges` (Vercel cron, hourly,
+      `CRON_SECRET`-gated) selects users whose `morning_hour` matches the current hour in
+      their timezone (`selectDueUsers` + `hourInTimeZone`) and fires their morning nudge.
 - [ ] **APNs delivery**: store the raw token encrypted, build the push payload from `copy_key`,
-      and actually send (needs Apple Push credentials). The engine + records already exist.
-- [ ] **Scheduled morning nudge**: a cron-triggered endpoint that calls
-      `planAndRecordNudges(user, 'morning')` for users whose `morning_hour` matches.
+      and actually send (needs Apple Push credentials). The engine + records + schedule exist.
 
 ## Phase 8 — Beta analytics + admin (Roadmap Week 10, build order 11–13) — partial
 
 - [x] Privacy-safe analytics event builders (`src/lib/analytics/events.ts`) using
       `buildAnalyticsEvent` (forbidden-key stripping + bucketing); `emitAnalytics` sink (no-op).
 - [x] `GET /api/admin/metrics` (admin-gated by `ADMIN_USER_IDS`): aggregate COUNTS only.
+- [x] **Rate limiting** on expensive endpoints (`lib/api/rateLimit` on sync/recalculate) +
+      **error reporting with financial-data scrubbing** (`lib/observability/report`) +
+      **privacy-acknowledgement endpoint** (`POST /api/onboarding/privacy`).
 - [ ] Wire `emitAnalytics` to a real privacy-safe provider; call the builders from every
       funnel point (signup, plaid link, payday saved, runway viewed, bill decisions, outcomes).
+- [ ] Back `lib/observability/report` with the **Sentry** SDK; back `lib/api/rateLimit` with a
+      shared store (Upstash) for multi-instance correctness.
 - [ ] Admin/debug **dashboard UI** (web) over the metrics endpoint.
-- [ ] Wire **Sentry** (server) with financial-data scrubbing (carried from Phase 2).
 - [ ] TestFlight build, privacy policy/terms, App Store privacy disclosures.
 - [ ] UAT scenarios from the Feature Spec (first setup, bill correction, widget
       setup, privacy mode, stale sync).
@@ -156,14 +161,23 @@ money movement, multi-user/shared budgets, advanced category breakdowns.
 
 ## Suggested next prompt for Claude
 
-> Implement **nudge scheduling + production hardening** for Nudget at `~/nudget` (still no
-> iOS UI). Add a cron-triggered morning-nudge endpoint (`GET /api/cron/morning-nudges`,
-> gated by a `CRON_SECRET` bearer, configured as a Vercel cron) that calls
-> `planAndRecordNudges(user, 'morning')` for users whose `notification_preferences.morning_hour`
-> matches the current hour in their timezone. Add the privacy-acknowledgement endpoint
-> (`POST /api/onboarding/privacy` → `profilesRepo.markPrivacyAcknowledged`). Wire **Sentry**
-> on the server with financial-data scrubbing, and make `emitAnalytics` forward to a
-> configurable provider (no-op when unset). Add lightweight rate limiting to the auth-gated,
-> expensive endpoints (sync, recalculate). Unit-test the cron selection logic (which users
-> are due) + the privacy/rate-limit helpers with mocks; tests mandatory. Defer actual APNs
-> push payload delivery (needs Apple credentials) and the iOS app to later phases.
+The backend is feature-complete through Phase 6 and **verified end-to-end** against real
+Supabase + Plaid Sandbox. Two natural tracks from here:
+
+**Track A — Deploy + wire real providers (make it a live service):**
+
+> Deploy the Nudget backend at `~/nudget` to Vercel with a hosted Supabase project. Apply
+> all migrations, set env (Supabase, Plaid Sandbox, `TOKEN_ENCRYPTION_KEY`, `CRON_SECRET`,
+> `ADMIN_USER_IDS`), and confirm the Vercel cron is registered from `vercel.json`. Then wire
+> the real providers behind the existing abstractions: back `lib/observability/report` with the
+> Sentry SDK (scrubbing on), make `emitAnalytics` POST to a configurable provider, and call the
+> `analyticsEvents` builders from each funnel route. Verify the deployed URL with a Plaid
+> Sandbox run. Keep tests green.
+
+**Track B — Start the iOS app (SwiftUI):**
+
+> Scaffold the Nudget iOS app (SwiftUI) against the now-stable, verified API. Build onboarding
+> (sign in → privacy consent → Plaid Link → payday setup → bill review), the dashboard (the
+> three core numbers + last-updated/stale states), and settings (notification preferences,
+> account deletion). Use the documented endpoints; surface every number with its freshness
+> context. Defer WidgetKit + APNs to the following phase.

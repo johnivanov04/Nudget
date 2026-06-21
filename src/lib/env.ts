@@ -32,6 +32,9 @@ export const envSchema = z.object({
   // Optional: comma-separated user ids allowed to read admin metrics.
   ADMIN_USER_IDS: z.string().optional(),
 
+  // Optional: shared secret for cron endpoints (Vercel Cron sends it as a bearer).
+  CRON_SECRET: z.string().optional(),
+
   // --- Encryption (server only) ---
   TOKEN_ENCRYPTION_KEY: z
     .string()

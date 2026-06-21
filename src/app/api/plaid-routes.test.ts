@@ -58,6 +58,7 @@ vi.mock('@/lib/services/bills', () => ({ runBillDetection: h.runBillDetection })
 vi.mock('@/lib/services/runway', () => ({ recomputeRunwayForUser: h.recomputeRunway }));
 vi.mock('@/lib/services/nudges', () => ({ planAndRecordNudges: h.planAndRecordNudges }));
 
+import { __resetRateLimitStore } from '@/lib/api/rateLimit';
 import { POST as linkToken } from './plaid/link-token/route';
 import { POST as exchange } from './plaid/exchange-public-token/route';
 import { POST as sync } from './plaid/sync/route';
@@ -77,6 +78,7 @@ function post(url: string, body?: unknown, headers: Record<string, string> = {})
 
 beforeEach(() => {
   vi.clearAllMocks();
+  __resetRateLimitStore();
   h.getEnv.mockReturnValue({ PLAID_WEBHOOK_URL: undefined });
   h.runBillDetection.mockResolvedValue({ detected: 0, upserted: 0 });
   h.recomputeRunway.mockResolvedValue({ status: 'ok' });
@@ -188,6 +190,16 @@ describe('POST /api/plaid/sync', () => {
     expect(h.runBillDetection).toHaveBeenCalledWith('user-A');
     expect(h.recomputeRunway).toHaveBeenCalledWith('user-A');
     expect(h.planAndRecordNudges).toHaveBeenCalledWith('user-A', 'event');
+  });
+
+  it('rate-limits a user hammering sync (429 after the cap)', async () => {
+    h.getUserFromRequest.mockResolvedValue(authed);
+    h.listByUser.mockResolvedValue([]);
+    let lastStatus = 0;
+    for (let i = 0; i < 8; i += 1) {
+      lastStatus = (await sync(post('http://t/api/plaid/sync'))).status;
+    }
+    expect(lastStatus).toBe(429); // limit is 6/min
   });
 });
 

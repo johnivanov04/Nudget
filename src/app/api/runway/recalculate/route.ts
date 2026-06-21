@@ -13,7 +13,8 @@ import { getUserFromRequest } from '@/lib/api/auth';
 import { recomputeRunwayForUser } from '@/lib/services/runway';
 import { buildRunwaySnapshot } from '@/lib/domain/snapshot';
 import { mockSnapshotInput } from '@/lib/mock/seedData';
-import { ok, unauthorized, serverError } from '@/lib/api/responses';
+import { rateLimit } from '@/lib/api/rateLimit';
+import { ok, unauthorized, serverError, tooManyRequests } from '@/lib/api/responses';
 
 export async function POST(req: NextRequest) {
   if (req.nextUrl.searchParams.get('demo') === '1') {
@@ -22,6 +23,9 @@ export async function POST(req: NextRequest) {
 
   const user = await getUserFromRequest(req);
   if (!user) return unauthorized();
+
+  const rl = rateLimit(`recalculate:${user.userId}`, { limit: 20, windowMs: 60_000 });
+  if (!rl.allowed) return tooManyRequests(rl.resetAt);
 
   try {
     const result = await recomputeRunwayForUser(user.userId);

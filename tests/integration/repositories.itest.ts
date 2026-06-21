@@ -251,4 +251,18 @@ d('repositories (integration)', () => {
     expect(prefs?.tone).toBe('direct');
     expect(prefs?.morning_enabled).toBe(false);
   });
+
+  it('notificationPreferencesRepo: listNudgeCandidates joins the timezone (cron path)', async () => {
+    await notificationPreferencesRepo.upsert({
+      user_id: user.userId,
+      enabled: true,
+      morning_enabled: true,
+      morning_hour: 8,
+    });
+    const candidates = await notificationPreferencesRepo.listNudgeCandidates();
+    const mine = candidates.find((c) => c.userId === user.userId);
+    expect(mine).toBeDefined();
+    expect(mine!.morningHour).toBe(8);
+    expect(typeof mine!.timezone).toBe('string'); // joined from profiles
+  });
 });

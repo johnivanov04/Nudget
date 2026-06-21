@@ -94,6 +94,25 @@ export function isOnOrBefore(a: IsoDate, b: IsoDate): boolean {
 }
 
 /**
+ * The hour-of-day (0–23) in a given IANA timezone for an instant. Used to decide
+ * whose scheduled morning nudge is due this hour. Falls back to UTC for a bad zone.
+ */
+export function hourInTimeZone(timeZone: string, now: Date): number {
+  try {
+    const formatted = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour: '2-digit',
+      hour12: false,
+    }).format(now);
+    const hour = parseInt(formatted, 10);
+    // Some platforms render midnight as "24"; normalize to 0.
+    return Number.isFinite(hour) ? hour % 24 : now.getUTCHours();
+  } catch {
+    return now.getUTCHours();
+  }
+}
+
+/**
  * The calendar date "today" in a given IANA timezone. Pure given an injected
  * `now` instant — the runway engine decides what "today" means in the user's
  * own timezone rather than the server's. Falls back to UTC for a bad zone.

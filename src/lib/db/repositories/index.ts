@@ -8,6 +8,6 @@ export { runwaySnapshotsRepo } from './runwaySnapshots';
 export { nudgeEventsRepo } from './nudgeEvents';
 export { feedbackEventsRepo } from './feedbackEvents';
 export { deviceTokensRepo, hashDeviceToken } from './deviceTokens';
-export { notificationPreferencesRepo } from './notificationPreferences';
+export { notificationPreferencesRepo, type NudgeCandidate } from './notificationPreferences';
 export { adminRepo, type AdminMetrics } from './admin';
 export { RepositoryError, unwrap } from './shared';

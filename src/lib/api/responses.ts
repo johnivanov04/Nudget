@@ -31,6 +31,14 @@ export function serverError(message = 'Internal server error'): NextResponse {
   return NextResponse.json({ error: 'server_error', message }, { status: 500 });
 }
 
+export function tooManyRequests(resetAt: number): NextResponse {
+  const retryAfter = Math.max(0, Math.ceil((resetAt - Date.now()) / 1000));
+  return NextResponse.json(
+    { error: 'rate_limited', message: 'Too many requests', retryAfterSeconds: retryAfter },
+    { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+  );
+}
+
 /**
  * Phase-1 placeholder. Returns 501 with a machine-readable description of the
  * planned behavior and the dependency that must land first.

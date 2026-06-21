@@ -13,12 +13,25 @@ import { syncTransactionsForItem } from '@/lib/plaid/sync';
 import { runBillDetection } from '@/lib/services/bills';
 import { recomputeRunwayForUser } from '@/lib/services/runway';
 import { planAndRecordNudges } from '@/lib/services/nudges';
-import { ok, badRequest, unauthorized, notFound, serverError } from '@/lib/api/responses';
+import { rateLimit } from '@/lib/api/rateLimit';
+import { reportError } from '@/lib/observability/report';
+import {
+  ok,
+  badRequest,
+  unauthorized,
+  notFound,
+  serverError,
+  tooManyRequests,
+} from '@/lib/api/responses';
 import type { PlaidItemRow } from '@/lib/db/types';
 
 export async function POST(req: NextRequest) {
   const user = await getUserFromRequest(req);
   if (!user) return unauthorized();
+
+  // Sync is expensive (Plaid + detection + recompute) — cap per user.
+  const rl = rateLimit(`sync:${user.userId}`, { limit: 6, windowMs: 60_000 });
+  if (!rl.allowed) return tooManyRequests(rl.resetAt);
 
   // Body is optional; default to syncing all items.
   let body: unknown = {};
@@ -58,12 +71,14 @@ export async function POST(req: NextRequest) {
       await recomputeRunwayForUser(user.userId);
       // Event-occasion nudges (danger / bill-approach) — throttled in the engine.
       await planAndRecordNudges(user.userId, 'event');
-    } catch {
-      // swallow — sync itself succeeded
+    } catch (err) {
+      // Sync itself succeeded; report the post-processing failure but don't fail.
+      reportError(err, { scope: 'plaid.sync.postprocess', userId: user.userId });
     }
 
     return ok({ synced: results.length, results, billsUpserted });
-  } catch {
+  } catch (err) {
+    reportError(err, { scope: 'plaid.sync', userId: user.userId });
     return serverError('Transaction sync failed');
   }
 }
