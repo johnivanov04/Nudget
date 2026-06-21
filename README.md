@@ -20,28 +20,28 @@ APNs push delivery, the iOS app (SwiftUI), and the WidgetKit widget come in late
 
 **Phases 1–5 (backend) complete:** foundation · auth + persistence · Plaid sync · bill detection + runway persistence · nudge engine + analytics.
 
-| Area                                                                   | Status                            |
-| ---------------------------------------------------------------------- | --------------------------------- |
-| Next.js + TypeScript project                                           | ✅                                |
-| Lint / format / typecheck / test tooling                               | ✅                                |
-| Env validation (zod)                                                   | ✅                                |
-| Postgres migrations + RLS (9 core tables)                              | ✅                                |
-| Server-side types + per-table repositories                             | ✅                                |
-| Plaid access-token encryption (AES-256-GCM)                            | ✅                                |
-| Pure runway engine (payday, daily spend, classification, runway, risk) | ✅ unit-tested                    |
-| Supabase Auth JWT verification + per-user scoping                      | ✅ (Phase 2)                      |
-| Account deletion + Plaid-item disconnect endpoints                     | ✅ (Phase 2)                      |
-| Integration tests (repos + RLS isolation + token safety)               | ✅ written, run vs local Supabase |
-| Plaid client + link-token / public-token exchange                      | ✅ (Phase 3)                      |
-| Cursor-based transaction sync (`/transactions/sync`)                   | ✅ (Phase 3)                      |
-| Signature-verified Plaid webhook (ES256, Node crypto)                  | ✅ (Phase 3)                      |
-| Recurring-bill detection (normalize → cadence → confidence)            | ✅ (Phase 4) unit-tested          |
-| DB-backed runway recompute + persisted `runway_snapshots`              | ✅ (Phase 4)                      |
-| `/runway/current` + `/widget/snapshot` read cached snapshot            | ✅ (Phase 4)                      |
-| **Nudge engine (eligibility, throttle, non-shaming copy keys)**        | ✅ (Phase 5) unit-tested          |
-| **Device-token registration + notification preferences**               | ✅ (Phase 5)                      |
-| **Privacy-safe analytics event builders + admin metrics endpoint**     | ✅ (Phase 5)                      |
-| API route structure (25 endpoints)                                     | ✅ (21 live, 4 documented stubs)  |
+| Area                                                                   | Status                           |
+| ---------------------------------------------------------------------- | -------------------------------- |
+| Next.js + TypeScript project                                           | ✅                               |
+| Lint / format / typecheck / test tooling                               | ✅                               |
+| Env validation (zod)                                                   | ✅                               |
+| Postgres migrations + RLS (9 core tables)                              | ✅                               |
+| Server-side types + per-table repositories                             | ✅                               |
+| Plaid access-token encryption (AES-256-GCM)                            | ✅                               |
+| Pure runway engine (payday, daily spend, classification, runway, risk) | ✅ unit-tested                   |
+| Supabase Auth JWT verification + per-user scoping                      | ✅ (Phase 2)                     |
+| Account deletion + Plaid-item disconnect endpoints                     | ✅ (Phase 2)                     |
+| Integration tests (repos + RLS isolation + token safety)               | ✅ 20/20 pass vs real Supabase   |
+| Plaid client + link-token / public-token exchange                      | ✅ (Phase 3)                     |
+| Cursor-based transaction sync (`/transactions/sync`)                   | ✅ (Phase 3)                     |
+| Signature-verified Plaid webhook (ES256, Node crypto)                  | ✅ (Phase 3)                     |
+| Recurring-bill detection (normalize → cadence → confidence)            | ✅ (Phase 4) unit-tested         |
+| DB-backed runway recompute + persisted `runway_snapshots`              | ✅ (Phase 4)                     |
+| `/runway/current` + `/widget/snapshot` read cached snapshot            | ✅ (Phase 4)                     |
+| **Nudge engine (eligibility, throttle, non-shaming copy keys)**        | ✅ (Phase 5) unit-tested         |
+| **Device-token registration + notification preferences**               | ✅ (Phase 5)                     |
+| **Privacy-safe analytics event builders + admin metrics endpoint**     | ✅ (Phase 5)                     |
+| API route structure (25 endpoints)                                     | ✅ (21 live, 4 documented stubs) |
 
 The actual APNs push delivery, the iOS app (SwiftUI), and WidgetKit are **not**
 built yet — see [`NEXT_STEPS.md`](./NEXT_STEPS.md).

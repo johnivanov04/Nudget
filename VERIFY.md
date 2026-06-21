@@ -26,7 +26,7 @@ Supabase. It creates/deletes its own throwaway users via the Auth admin API.
 2. **Apply the schema.** Copy all three migrations into the project's **SQL Editor**
    and run them, in order:
    ```bash
-   npm run db:schema | pbcopy     # copies 0001 + 0002 + 0003, in order
+   npm run --silent db:schema | pbcopy     # copies 0001 + 0002 + 0003, in order
    ```
    Paste into the SQL Editor → **Run**. (Or open the three files in
    `supabase/migrations/` and run them top to bottom.)
