@@ -74,8 +74,10 @@ echo "  public_token created"
 echo "▶ 5/8  Exchange public token (server encrypts + stores it)"
 EXCHANGE=$(curl -sf -X POST "$BASE_URL/api/plaid/exchange-public-token" "${AUTH[@]}" -H "Content-Type: application/json" \
   -d "{\"publicToken\":\"$PUBLIC_TOKEN\"}") || fail "exchange failed"
-echo "$EXCHANGE" | grep -qiv "access" || fail "SECURITY: response appears to contain a token!"
-ACCTS=$(echo "$EXCHANGE" | jget "['accounts']" | python3 -c "import sys; print(len(eval(sys.stdin.read())))")
+if echo "$EXCHANGE" | grep -qiE 'access-(sandbox|development|production)|access_token'; then
+  fail "SECURITY: exchange response appears to contain a Plaid access token!"
+fi
+ACCTS=$(echo "$EXCHANGE" | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('accounts',[])))")
 echo "  linked $ACCTS account(s); response carries NO access token ✓"
 
 echo "▶ 6/8  Sync transactions (cursor-based; detect bills; recompute runway)"
