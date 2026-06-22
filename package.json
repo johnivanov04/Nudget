@@ -21,6 +21,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "db:schema": "cat supabase/migrations/0001_init.sql supabase/migrations/0002_recurring_bill_merchant_key.sql supabase/migrations/0003_notifications.sql",
     "verify:live": "bash scripts/verify-live.sh",
+    "seed:demo": "bash scripts/seed-demo-user.sh",
     "demo:runway": "NUDGET_DEMO=1 vitest run src/scripts/demoRunway.test.ts --reporter=basic"
   },
   "dependencies": {
