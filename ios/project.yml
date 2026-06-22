@@ -1,0 +1,35 @@
+name: Nudget
+options:
+  bundleIdPrefix: app.nudget
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  Nudget:
+    type: application
+    platform: iOS
+    sources:
+      - Nudget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.nudget.ios
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1" # iPhone
+    info:
+      path: Nudget/Info.plist
+      properties:
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # Allow the dev server over http://localhost while developing.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true

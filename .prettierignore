@@ -4,3 +4,4 @@ coverage
 *.lock
 package-lock.json
 supabase/migrations
+ios

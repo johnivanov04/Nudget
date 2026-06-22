@@ -36,3 +36,11 @@ next-env.d.ts
 .idea
 .vscode/*
 !.vscode/extensions.json
+
+# iOS / Xcode — the project is generated from ios/project.yml via XcodeGen
+ios/*.xcodeproj
+ios/Nudget/Info.plist
+ios/DerivedData/
+ios/build/
+*.xcuserstate
+*.xcuserdatad
