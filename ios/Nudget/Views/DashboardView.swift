@@ -4,8 +4,11 @@ struct DashboardView: View {
     @EnvironmentObject private var session: SessionStore
     @StateObject private var model: DashboardViewModel
     @State private var privacyMode = false
+    @State private var showOnboarding = false
+    private let token: String
 
     init(token: String) {
+        self.token = token
         _model = StateObject(wrappedValue: DashboardViewModel(token: token))
     }
 
@@ -44,6 +47,12 @@ struct DashboardView: View {
         .onChange(of: model.state) { _, newValue in
             // Expired/invalid token -> drop back to sign-in.
             if newValue == .unauthorized { session.signOut() }
+        }
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingView(token: token) {
+                showOnboarding = false
+                Task { await model.load() }
+            }
         }
     }
 
@@ -96,6 +105,8 @@ struct DashboardView: View {
         } description: {
             Text("Connect a bank and set your payday so Nudget can show your runway.")
         } actions: {
+            Button("Set up Nudget") { showOnboarding = true }
+                .buttonStyle(.borderedProminent)
             Button("Refresh") { Task { await model.load() } }
                 .buttonStyle(.bordered)
         }

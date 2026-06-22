@@ -83,4 +83,52 @@ struct NudgetAPI {
             throw NudgetAPIError.decoding(error)
         }
     }
+
+    /// `POST /api/onboarding/privacy` — record the privacy acknowledgement.
+    func acknowledgePrivacy(token: String) async throws {
+        _ = try await postAuthed(path: "api/onboarding/privacy", token: token, body: [:])
+    }
+
+    /// `POST /api/onboarding/paycheck` — save the pay schedule.
+    func savePaycheck(
+        token: String,
+        frequency: String,
+        lastPaycheckDate: String,
+        weekendRule: String = "none"
+    ) async throws {
+        _ = try await postAuthed(
+            path: "api/onboarding/paycheck",
+            token: token,
+            body: [
+                "frequency": frequency,
+                "lastPaycheckDate": lastPaycheckDate,
+                "weekendRule": weekendRule,
+            ]
+        )
+    }
+
+    @discardableResult
+    private func postAuthed(path: String, token: String, body: [String: String]) async throws -> Data {
+        let url = baseURL.appendingPathComponent(path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw NudgetAPIError.transport(error)
+        }
+
+        guard let http = response as? HTTPURLResponse else { throw NudgetAPIError.badStatus(-1) }
+        if http.statusCode == 401 { throw NudgetAPIError.unauthorized }
+        guard (200..<300).contains(http.statusCode) else {
+            throw NudgetAPIError.badStatus(http.statusCode)
+        }
+        return data
+    }
 }
