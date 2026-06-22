@@ -33,6 +33,9 @@ enum Format {
     private static let dayMonthFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
+        // The payday is a calendar date (parsed at UTC midnight), so format it in
+        // UTC too — otherwise a behind-UTC device shifts it back a day.
+        f.timeZone = TimeZone(identifier: "UTC")
         f.dateFormat = "MMM d"
         return f
     }()
