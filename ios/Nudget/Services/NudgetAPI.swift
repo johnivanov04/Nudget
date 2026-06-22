@@ -2,6 +2,7 @@ import Foundation
 
 enum NudgetAPIError: LocalizedError {
     case invalidURL
+    case unauthorized
     case badStatus(Int)
     case decoding(Error)
     case transport(Error)
@@ -9,6 +10,7 @@ enum NudgetAPIError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidURL: return "Could not build the request URL."
+        case .unauthorized: return "Your session expired. Please sign in again."
         case .badStatus(let code): return "The server responded with status \(code)."
         case .decoding: return "Couldn't read the server's response."
         case .transport(let error): return error.localizedDescription
@@ -50,6 +52,33 @@ struct NudgetAPI {
 
         do {
             return try JSONDecoder().decode(WidgetSnapshotResponse.self, from: data).widget
+        } catch {
+            throw NudgetAPIError.decoding(error)
+        }
+    }
+
+    /// `GET /api/runway/current` — the authenticated user's latest runway snapshot.
+    func runwayCurrent(token: String) async throws -> RunwayCurrentResponse {
+        let url = baseURL.appendingPathComponent("api/runway/current")
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw NudgetAPIError.transport(error)
+        }
+
+        guard let http = response as? HTTPURLResponse else { throw NudgetAPIError.badStatus(-1) }
+        if http.statusCode == 401 { throw NudgetAPIError.unauthorized }
+        guard (200..<300).contains(http.statusCode) else {
+            throw NudgetAPIError.badStatus(http.statusCode)
+        }
+
+        do {
+            return try JSONDecoder().decode(RunwayCurrentResponse.self, from: data)
         } catch {
             throw NudgetAPIError.decoding(error)
         }

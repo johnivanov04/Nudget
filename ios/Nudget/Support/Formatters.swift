@@ -13,13 +13,21 @@ enum Format {
         return dayMonthFormatter.string(from: date)
     }
 
-    /// "Updated 2h ago" from an ISO-8601 datetime string.
+    /// "Updated 2h ago" from an ISO-8601 datetime string. Handles both the mock's
+    /// 3-digit fractional seconds ("…000Z") and Postgres microseconds ("…640902+00:00").
     static func relativeUpdated(_ iso: String?) -> String {
-        guard let iso, let date = isoDateTimeParser.date(from: iso) else {
-            return "Last updated unknown"
-        }
+        guard let iso, let date = parseTimestamp(iso) else { return "Last updated unknown" }
         let rel = relativeFormatter.localizedString(for: date, relativeTo: Date())
         return "Updated \(rel)"
+    }
+
+    private static func parseTimestamp(_ iso: String) -> Date? {
+        if let date = isoDateTimeParser.date(from: iso) { return date }
+        // Strip fractional seconds of any length, then parse without them.
+        let stripped = iso.replacingOccurrences(
+            of: #"\.\d+"#, with: "", options: .regularExpression
+        )
+        return isoDateTimeNoFracParser.date(from: stripped)
     }
 
     private static let isoDayParser: DateFormatter = {
@@ -43,6 +51,12 @@ enum Format {
     private static let isoDateTimeParser: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let isoDateTimeNoFracParser: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
         return f
     }()
 

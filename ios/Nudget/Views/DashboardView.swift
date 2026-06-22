@@ -1,7 +1,13 @@
 import SwiftUI
 
 struct DashboardView: View {
-    @StateObject private var model = DashboardViewModel()
+    @EnvironmentObject private var session: SessionStore
+    @StateObject private var model: DashboardViewModel
+    @State private var privacyMode = false
+
+    init(token: String) {
+        _model = StateObject(wrappedValue: DashboardViewModel(token: token))
+    }
 
     var body: some View {
         NavigationStack {
@@ -9,17 +15,25 @@ struct DashboardView: View {
                 switch model.state {
                 case .loading:
                     ProgressView("Loading your runway…")
-                case .failed(let message):
-                    errorState(message)
                 case .loaded(let snapshot):
                     loadedState(snapshot)
+                case .needsSetup:
+                    needsSetupState
+                case .unauthorized:
+                    ProgressView()
+                case .failed(let message):
+                    errorState(message)
                 }
             }
             .navigationTitle("Nudget")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Sign out") { session.signOut() }
+                        .font(.subheadline)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Toggle(isOn: $model.privacyMode) {
-                        Image(systemName: model.privacyMode ? "eye.slash" : "eye")
+                    Toggle(isOn: $privacyMode) {
+                        Image(systemName: privacyMode ? "eye.slash" : "eye")
                     }
                     .toggleStyle(.button)
                     .accessibilityLabel("Privacy mode")
@@ -27,21 +41,24 @@ struct DashboardView: View {
             }
         }
         .task { await model.load() }
+        .onChange(of: model.state) { _, newValue in
+            // Expired/invalid token -> drop back to sign-in.
+            if newValue == .unauthorized { session.signOut() }
+        }
     }
 
     // MARK: - States
 
-    private func loadedState(_ s: WidgetSnapshot) -> some View {
+    private func loadedState(_ s: RunwaySnapshotView) -> some View {
         ScrollView {
             VStack(spacing: 24) {
                 RiskBadge(risk: s.risk)
 
-                // Hero: safe to spend
                 VStack(spacing: 4) {
                     Text("Safe to spend")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Text(s.privacyMode ? "•••••" : Format.currency(s.safeToSpend))
+                    Text(masked(s.safeToSpend))
                         .font(.system(size: 52, weight: .bold, design: .rounded))
                         .contentTransition(.numericText())
                     if let days = s.daysUntilPayday {
@@ -51,15 +68,11 @@ struct DashboardView: View {
                     }
                 }
 
-                // Secondary numbers
                 HStack(spacing: 12) {
-                    StatTile(label: "Spent today",
-                             value: s.privacyMode ? "•••" : Format.currency(s.spentToday))
-                    StatTile(label: "Bills before payday",
-                             value: s.privacyMode ? "•••" : Format.currency(s.billsBeforePayday))
+                    StatTile(label: "Spent today", value: masked(s.spentToday))
+                    StatTile(label: "Bills before payday", value: masked(s.billsBeforePayday))
                 }
 
-                // Freshness — every number carries last-updated context.
                 HStack(spacing: 6) {
                     if s.isStale {
                         Image(systemName: "clock.badge.exclamationmark")
@@ -77,6 +90,17 @@ struct DashboardView: View {
         .refreshable { await model.load() }
     }
 
+    private var needsSetupState: some View {
+        ContentUnavailableView {
+            Label("Finish setting up", systemImage: "checklist")
+        } description: {
+            Text("Connect a bank and set your payday so Nudget can show your runway.")
+        } actions: {
+            Button("Refresh") { Task { await model.load() } }
+                .buttonStyle(.bordered)
+        }
+    }
+
     private func errorState(_ message: String) -> some View {
         ContentUnavailableView {
             Label("Couldn't load your runway", systemImage: "wifi.exclamationmark")
@@ -87,10 +111,14 @@ struct DashboardView: View {
                 .buttonStyle(.borderedProminent)
         }
     }
+
+    private func masked(_ value: Double?) -> String {
+        privacyMode ? "•••••" : Format.currency(value)
+    }
 }
 
 /// A labeled stat card used for the secondary numbers.
-private struct StatTile: View {
+struct StatTile: View {
     let label: String
     let value: String
 
@@ -106,8 +134,4 @@ private struct StatTile: View {
         .padding(16)
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
     }
-}
-
-#Preview {
-    DashboardView()
 }

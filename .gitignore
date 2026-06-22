@@ -40,6 +40,7 @@ next-env.d.ts
 # iOS / Xcode — the project is generated from ios/project.yml via XcodeGen
 ios/*.xcodeproj
 ios/Nudget/Info.plist
+ios/Nudget/Secrets.swift
 ios/DerivedData/
 ios/build/
 *.xcuserstate
