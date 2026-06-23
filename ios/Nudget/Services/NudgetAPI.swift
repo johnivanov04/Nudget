@@ -84,6 +84,26 @@ struct NudgetAPI {
         }
     }
 
+    /// `GET /api/accounts` — the user's linked accounts.
+    func accounts(token: String) async throws -> [Account] {
+        let data = try await getAuthed(path: "api/accounts", token: token)
+        do {
+            return try JSONDecoder().decode(AccountsResponse.self, from: data).accounts
+        } catch {
+            throw NudgetAPIError.decoding(error)
+        }
+    }
+
+    /// `POST /api/accounts/:id/included` — toggle whether an account counts toward
+    /// the runway. The server recomputes the runway as part of this call.
+    func setAccountIncluded(token: String, accountId: String, included: Bool) async throws {
+        _ = try await postAuthed(
+            path: "api/accounts/\(accountId)/included",
+            token: token,
+            body: ["included": included]
+        )
+    }
+
     /// `GET /api/onboarding/status` — which onboarding steps are complete.
     func onboardingStatus(token: String) async throws -> OnboardingStatus {
         let data = try await getAuthed(path: "api/onboarding/status", token: token)
@@ -162,7 +182,7 @@ struct NudgetAPI {
     }
 
     @discardableResult
-    private func postAuthed(path: String, token: String, body: [String: String]) async throws -> Data {
+    private func postAuthed(path: String, token: String, body: [String: Any]) async throws -> Data {
         let url = baseURL.appendingPathComponent(path)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

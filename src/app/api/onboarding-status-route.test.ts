@@ -17,7 +17,8 @@ vi.mock('@/lib/db/repositories', () => ({
 
 import { GET as onboardingStatus } from './onboarding/status/route';
 
-const get = () => new NextRequest('http://t/api/onboarding/status', { headers: { authorization: 'Bearer t' } });
+const get = () =>
+  new NextRequest('http://t/api/onboarding/status', { headers: { authorization: 'Bearer t' } });
 
 beforeEach(() => vi.clearAllMocks());
 

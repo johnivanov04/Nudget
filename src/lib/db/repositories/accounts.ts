@@ -25,11 +25,23 @@ export const accountsRepo = {
     if (error) throw error;
   },
 
-  async setIncludedInRunway(accountId: string, included: boolean): Promise<void> {
-    const { error } = await getSupabaseAdmin()
+  /**
+   * Ownership-scoped toggle of whether an account's cash counts toward the
+   * runway. Returns true if a row was updated, false if no such account exists
+   * for this user (caller maps that to 404).
+   */
+  async setIncludedInRunway(
+    userId: string,
+    accountId: string,
+    included: boolean,
+  ): Promise<boolean> {
+    const { data, error } = await getSupabaseAdmin()
       .from('accounts')
       .update({ included_in_runway: included })
-      .eq('id', accountId);
+      .eq('id', accountId)
+      .eq('user_id', userId) // ownership guard
+      .select('id');
     if (error) throw error;
+    return Array.isArray(data) && data.length > 0;
   },
 };

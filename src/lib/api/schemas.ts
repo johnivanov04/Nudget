@@ -119,3 +119,10 @@ export const testNudgeSchema = z.object({
   occasion: z.enum(['morning', 'event']).default('morning'),
 });
 export type TestNudgeBody = z.infer<typeof testNudgeSchema>;
+
+// --- Accounts (account selection) ------------------------------------------
+
+export const accountIncludedSchema = z.object({
+  included: z.boolean(),
+});
+export type AccountIncludedBody = z.infer<typeof accountIncludedSchema>;

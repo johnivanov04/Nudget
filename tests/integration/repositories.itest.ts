@@ -112,7 +112,15 @@ d('repositories (integration)', () => {
     const accounts = await accountsRepo.listByUser(user.userId);
     expect(accounts.length).toBeGreaterThan(0);
     const account = accounts[0]!;
-    await accountsRepo.setIncludedInRunway(account.id, false);
+    expect(await accountsRepo.setIncludedInRunway(user.userId, account.id, false)).toBe(true);
+    // Another user's id must not match (ownership guard).
+    expect(
+      await accountsRepo.setIncludedInRunway(
+        '00000000-0000-0000-0000-000000000000',
+        account.id,
+        true,
+      ),
+    ).toBe(false);
 
     await transactionsRepo.upsertMany([
       {

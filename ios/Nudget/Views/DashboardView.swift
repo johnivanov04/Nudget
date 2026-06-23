@@ -5,6 +5,7 @@ struct DashboardView: View {
     @StateObject private var model: DashboardViewModel
     @State private var privacyMode = false
     @State private var showOnboarding = false
+    @State private var showAccounts = false
     private let token: String
 
     init(token: String) {
@@ -31,8 +32,20 @@ struct DashboardView: View {
             .navigationTitle("Nudget")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Sign out") { session.signOut() }
-                        .font(.subheadline)
+                    Menu {
+                        Button {
+                            showAccounts = true
+                        } label: {
+                            Label("Accounts", systemImage: "creditcard")
+                        }
+                        Button(role: .destructive) {
+                            session.signOut()
+                        } label: {
+                            Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
+                        }
+                    } label: {
+                        Image(systemName: "line.3.horizontal")
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Toggle(isOn: $privacyMode) {
@@ -51,6 +64,12 @@ struct DashboardView: View {
         .sheet(isPresented: $showOnboarding) {
             OnboardingView(token: token) {
                 showOnboarding = false
+                Task { await model.load() }
+            }
+        }
+        .sheet(isPresented: $showAccounts) {
+            AccountsView(token: token) {
+                showAccounts = false
                 Task { await model.load() }
             }
         }
