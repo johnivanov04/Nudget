@@ -2,11 +2,9 @@ import SwiftUI
 
 struct OnboardingView: View {
     @StateObject private var vm: OnboardingViewModel
-    private let onComplete: () -> Void
 
     init(token: String, onComplete: @escaping () -> Void) {
-        _vm = StateObject(wrappedValue: OnboardingViewModel(token: token))
-        self.onComplete = onComplete
+        _vm = StateObject(wrappedValue: OnboardingViewModel(token: token, onComplete: onComplete))
     }
 
     var body: some View {
@@ -28,6 +26,24 @@ struct OnboardingView: View {
             .padding(24)
             .navigationTitle("Set up Nudget")
             .navigationBarTitleDisplayMode(.inline)
+        }
+        .task { await vm.start() }
+        .fullScreenCover(
+            isPresented: Binding(
+                get: { vm.linkToken != nil },
+                set: { if !$0 { vm.linkToken = nil } }
+            )
+        ) {
+            if let linkToken = vm.linkToken {
+                PlaidLinkView(
+                    linkToken: linkToken,
+                    onSuccess: { publicToken in
+                        Task { await vm.linkSucceeded(publicToken: publicToken) }
+                    },
+                    onExit: { message in vm.linkExited(error: message) }
+                )
+                .ignoresSafeArea()
+            }
         }
     }
 
@@ -87,18 +103,17 @@ struct OnboardingView: View {
             Image(systemName: "building.columns")
                 .font(.system(size: 56))
                 .foregroundStyle(.tint)
-            Text("Next: connect your bank")
+            Text("Connect your bank")
                 .font(.title2.weight(.bold))
                 .multilineTextAlignment(.center)
-            Text("Linking your bank lets Nudget calculate your runway automatically. Bank connection is coming in the next update.")
+            Text("Securely link an account through Plaid so Nudget can calculate your runway. Nudget never sees your bank login.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Spacer()
-            Button("Finish for now") { onComplete() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .frame(maxWidth: .infinity)
+            primaryButton("Connect a bank") { await vm.beginLink() }
+            Button("Skip for now") { vm.skip() }
+                .font(.subheadline)
         }
     }
 

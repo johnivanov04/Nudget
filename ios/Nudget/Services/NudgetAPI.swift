@@ -84,6 +84,40 @@ struct NudgetAPI {
         }
     }
 
+    /// `GET /api/onboarding/status` — which onboarding steps are complete.
+    func onboardingStatus(token: String) async throws -> OnboardingStatus {
+        let data = try await getAuthed(path: "api/onboarding/status", token: token)
+        do {
+            return try JSONDecoder().decode(OnboardingStatus.self, from: data)
+        } catch {
+            throw NudgetAPIError.decoding(error)
+        }
+    }
+
+    /// `POST /api/plaid/link-token` — short-lived token to open Plaid Link.
+    func createLinkToken(token: String) async throws -> String {
+        let data = try await postAuthed(path: "api/plaid/link-token", token: token, body: [:])
+        do {
+            return try JSONDecoder().decode(LinkTokenResponse.self, from: data).linkToken
+        } catch {
+            throw NudgetAPIError.decoding(error)
+        }
+    }
+
+    /// `POST /api/plaid/exchange-public-token` — store the linked item server-side.
+    func exchangePublicToken(token: String, publicToken: String) async throws {
+        _ = try await postAuthed(
+            path: "api/plaid/exchange-public-token",
+            token: token,
+            body: ["publicToken": publicToken]
+        )
+    }
+
+    /// `POST /api/plaid/sync` — pull transactions, detect bills, recompute runway.
+    func syncTransactions(token: String) async throws {
+        _ = try await postAuthed(path: "api/plaid/sync", token: token, body: [:])
+    }
+
     /// `POST /api/onboarding/privacy` — record the privacy acknowledgement.
     func acknowledgePrivacy(token: String) async throws {
         _ = try await postAuthed(path: "api/onboarding/privacy", token: token, body: [:])
@@ -105,6 +139,26 @@ struct NudgetAPI {
                 "weekendRule": weekendRule,
             ]
         )
+    }
+
+    private func getAuthed(path: String, token: String) async throws -> Data {
+        let url = baseURL.appendingPathComponent(path)
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw NudgetAPIError.transport(error)
+        }
+        guard let http = response as? HTTPURLResponse else { throw NudgetAPIError.badStatus(-1) }
+        if http.statusCode == 401 { throw NudgetAPIError.unauthorized }
+        guard (200..<300).contains(http.statusCode) else {
+            throw NudgetAPIError.badStatus(http.statusCode)
+        }
+        return data
     }
 
     @discardableResult
