@@ -1,4 +1,5 @@
 import Foundation
+import WidgetKit
 
 /// Holds the auth state for the whole app. Persists the access token in the
 /// Keychain so the session survives relaunches.
@@ -43,6 +44,8 @@ final class SessionStore: ObservableObject {
     func signOut() {
         Keychain.delete(Self.tokenAccount)
         Keychain.delete(Self.emailAccount)
+        SharedStore.clear()
+        WidgetCenter.shared.reloadAllTimelines()
         state = .signedOut
     }
 

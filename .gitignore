@@ -41,6 +41,9 @@ next-env.d.ts
 ios/*.xcodeproj
 ios/Nudget/Info.plist
 ios/Nudget/Secrets.swift
+ios/Nudget/Nudget.entitlements
+ios/NudgetWidget/Info.plist
+ios/NudgetWidget/NudgetWidget.entitlements
 ios/DerivedData/
 ios/build/
 *.xcuserstate

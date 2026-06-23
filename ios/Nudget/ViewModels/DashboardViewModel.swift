@@ -1,4 +1,5 @@
 import Foundation
+import WidgetKit
 
 @MainActor
 final class DashboardViewModel: ObservableObject {
@@ -26,6 +27,7 @@ final class DashboardViewModel: ObservableObject {
             let response = try await api.runwayCurrent(token: token)
             if let snapshot = response.snapshot, !snapshot.needsData {
                 state = .loaded(snapshot)
+                publishToWidget(snapshot)
             } else {
                 state = .needsSetup
             }
@@ -34,5 +36,23 @@ final class DashboardViewModel: ObservableObject {
         } catch {
             state = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }
+    }
+
+    /// Mirror the latest snapshot into the App Group + refresh the widget.
+    private func publishToWidget(_ snapshot: RunwaySnapshotView) {
+        SharedStore.save(
+            SharedSnapshot(
+                status: snapshot.status,
+                safeToSpend: snapshot.safeToSpend,
+                spentToday: snapshot.spentToday,
+                billsBeforePayday: snapshot.billsBeforePayday,
+                riskLevel: snapshot.riskLevel,
+                paydayDate: snapshot.paydayDate,
+                daysUntilPayday: snapshot.daysUntilPayday,
+                lastUpdatedAt: snapshot.lastUpdatedAt,
+                isStale: snapshot.isStale
+            )
+        )
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }

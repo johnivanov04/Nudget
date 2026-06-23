@@ -21,14 +21,22 @@ targets:
     platform: iOS
     sources:
       - Nudget
+      - Shared
     dependencies:
       - package: LinkKit
+      - target: NudgetWidget
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.nudget.ios
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1" # iPhone
+    entitlements:
+      path: Nudget/Nudget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.app.nudget.ios
     info:
       path: Nudget/Info.plist
       properties:
@@ -40,3 +48,27 @@ targets:
         # Allow the dev server over http://localhost while developing.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+
+  NudgetWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - NudgetWidget
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.nudget.ios.widget
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+    entitlements:
+      path: NudgetWidget/NudgetWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.app.nudget.ios
+    info:
+      path: NudgetWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Nudget
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
