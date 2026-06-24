@@ -6,6 +6,7 @@ struct DashboardView: View {
     @State private var privacyMode = false
     @State private var showOnboarding = false
     @State private var showAccounts = false
+    @State private var showBills = false
     private let token: String
 
     init(token: String) {
@@ -33,6 +34,11 @@ struct DashboardView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
+                        Button {
+                            showBills = true
+                        } label: {
+                            Label("Bills", systemImage: "calendar.badge.clock")
+                        }
                         Button {
                             showAccounts = true
                         } label: {
@@ -70,6 +76,12 @@ struct DashboardView: View {
         .sheet(isPresented: $showAccounts) {
             AccountsView(token: token) {
                 showAccounts = false
+                Task { await model.load() }
+            }
+        }
+        .sheet(isPresented: $showBills) {
+            BillsView(token: token) {
+                showBills = false
                 Task { await model.load() }
             }
         }

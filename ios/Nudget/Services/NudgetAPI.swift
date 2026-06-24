@@ -84,6 +84,31 @@ struct NudgetAPI {
         }
     }
 
+    /// `GET /api/bills/detected` — detected + confirmed recurring bills.
+    func bills(token: String) async throws -> [Bill] {
+        let data = try await getAuthed(path: "api/bills/detected", token: token)
+        do {
+            return try JSONDecoder().decode(BillsResponse.self, from: data).bills
+        } catch {
+            throw NudgetAPIError.decoding(error)
+        }
+    }
+
+    /// `POST /api/bills/:id/confirm` — confirm (optionally editing amount/date) or
+    /// reject a bill. The server recomputes the runway as part of this call.
+    func updateBill(
+        token: String,
+        billId: String,
+        status: String,
+        amountEstimate: Double? = nil,
+        nextExpectedDate: String? = nil
+    ) async throws {
+        var body: [String: Any] = ["status": status]
+        if let amountEstimate { body["amountEstimate"] = amountEstimate }
+        if let nextExpectedDate { body["nextExpectedDate"] = nextExpectedDate }
+        _ = try await postAuthed(path: "api/bills/\(billId)/confirm", token: token, body: body)
+    }
+
     /// `GET /api/accounts` — the user's linked accounts.
     func accounts(token: String) async throws -> [Account] {
         let data = try await getAuthed(path: "api/accounts", token: token)
