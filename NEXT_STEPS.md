@@ -1,8 +1,16 @@
 # Nudget — Next Steps / Roadmap
 
 This maps the remaining work from the three planning documents (PRD, Feature
-Specifications, 90-Day Roadmap) onto concrete engineering phases. Phases 1–2
-are **done**; Phase 3 onward is outstanding.
+Specifications, 90-Day Roadmap) onto concrete engineering phases.
+
+**Status (2026-06-24):** Backend Phases 1–8 are essentially complete and the
+backend is **verified end-to-end** against real Supabase + Plaid Sandbox (see
+[`VERIFY.md`](./VERIFY.md)). The **iOS app + home/lock-screen widgets are built**
+and run on device against the real backend: sign in → privacy → payday → connect a
+real bank via Plaid Link → account selection → trustworthy runway → glanceable
+widgets. What remains is mostly **polish + ship** (bill review, settings, account
+deletion UI) and the things that need a **paid Apple Developer account** or a
+**production deploy** (APNs delivery, TestFlight, hosted env + real providers).
 
 The guardrail for every item: **does it improve the answer to "How much can I
 safely spend before payday after upcoming bills?"** If not, defer it.
@@ -35,11 +43,11 @@ the API route skeleton (3 live endpoints + 11 documented stubs).
 
 **Carried into a later phase:**
 
-- [ ] Email/password + **Apple Sign-In** client flows (iOS, Phase 5) — server JWT
-      verification already works for any Supabase Auth provider.
-- [ ] Explicit privacy-acknowledgement endpoint (`profilesRepo.markPrivacyAcknowledged`
-      exists; wire a `POST /api/onboarding/privacy` route when the iOS flow lands).
-- [ ] Wire **Sentry** (server) with payload scrubbing for financial data.
+- [x] Email/password client flow (iOS — done in Phase 5). **Apple Sign-In** still
+      optional; server JWT verification already works for any Supabase Auth provider.
+- [x] Privacy-acknowledgement endpoint **`POST /api/onboarding/privacy`** (wired; the iOS
+      onboarding calls it).
+- [ ] Wire **Sentry** (server) with payload scrubbing for financial data (Phase 8).
 
 ## ✅ Phase 3 — Plaid + transaction sync (Roadmap Week 3, build order 3–4) (DONE)
 
@@ -93,21 +101,45 @@ the API route skeleton (3 live endpoints + 11 documented stubs).
       power users before scale.
 - [ ] Move post-sync detection + recompute onto a queue (Phase 8) so sync returns fast.
 
-## Phase 5 — iOS app (SwiftUI) (Roadmap Week 4 + build order 8)
+## ✅ Phase 5 — iOS app (SwiftUI) (Roadmap Week 4, build order 8) (CORE DONE)
 
-> Not part of this repo. Tracked here for sequencing.
+Lives in `ios/` (same repo), XcodeGen-based (`project.yml` is source of truth;
+`.xcodeproj`/`Info.plist`/entitlements/`Secrets.swift` are gitignored). Builds
+headlessly (`xcodebuild … BUILD SUCCEEDED`) and runs on the simulator against the
+local backend.
 
-- [ ] SwiftUI onboarding, privacy consent, Plaid Link flow, payday setup, bill
-      review, dashboard. Onboarding target < 5 min (excl. Plaid delays).
-- [ ] App Group shared storage for the cached widget snapshot.
-- [ ] Surface **last-updated** on every number; stale + needs-data states.
+- [x] **Auth** — email/password sign-in/up against Supabase GoTrue (hand-rolled,
+      no Supabase Swift SDK); JWT in the Keychain; `SessionStore` drives the root view;
+      401 → sign out.
+- [x] **Onboarding** — privacy consent (`POST /api/onboarding/privacy`) → payday
+      (`POST /api/onboarding/paycheck`) → **Plaid Link** via `LinkKit` SPM dep
+      (`createLinkToken` → present → `exchangePublicToken` → `syncTransactions`).
+      Resumes at the first incomplete step via `GET /api/onboarding/status`.
+- [x] **Dashboard** — `GET /api/runway/current`; three core numbers, risk badge,
+      privacy toggle, **last-updated / stale** line, needs-setup + error states.
+- [x] **Account selection** — `GET /api/accounts` + per-account include toggle
+      (`POST /api/accounts/:id/included`), so the runway reflects spendable cash only.
+- [ ] **Bill review** screen — `GET /api/bills/detected` + `POST /api/bills/:id/confirm`
+      (confirm/reject/edit). Backend ready; UI not built.
+- [ ] **Settings** screen — notification preferences (`GET|POST /api/nudges/preferences`),
+      Plaid-item disconnect, **account deletion** (`DELETE /api/account` — privacy/App-Store
+      requirement). Backends ready; UI not built.
+- [ ] **Feedback** capture (`POST /api/feedback`). Backend ready; UI not built.
+- [ ] Apple Sign-In (optional; server JWT verification already supports it).
 
-## Phase 6 — WidgetKit widget (Roadmap Week 8, build order 9)
+## ✅ Phase 6 — WidgetKit widget (Roadmap Week 8, build order 9) (DONE)
 
-- [ ] Small (safe-to-spend) + medium (safe-to-spend, spent today, bills, payday).
-- [ ] Lock-screen widget with **privacy mode** (hide amounts) by default.
-- [ ] Reads the local cached snapshot; no blocking network; deep-links into app.
-- [ ] Manual QA matrix: no-data, safe, caution, danger, stale, privacy mode.
+- [x] `NudgetWidget` app-extension target + **App Group** (`group.app.nudget.ios`);
+      `ios/Shared/` (snapshot + store + formatters + risk styles) compiled into both
+      targets. The app writes the snapshot to the App Group on each dashboard load and
+      calls `WidgetCenter.reloadAllTimelines()`; sign-out clears it.
+- [x] **Home** widgets: small (risk-colored safe-to-spend) + medium (adds spent-today,
+      bills, payday, updated-ago). No blocking network — reads the cached snapshot.
+- [x] **Lock-screen** accessories (rectangular / inline / circular) — **privacy-safe by
+      default**: risk state + days-to-payday, no dollar amounts.
+- [x] Risk colors (safe/caution/danger), stale + empty ("Open the app") states.
+      Verified on device across safe/danger and home/lock-screen.
+- [ ] Deep-link widget tap → dashboard (currently opens the app; no deep link yet).
 
 ## Phase 7 — Push nudges (Roadmap Week 9, build order 10) — backend DONE, delivery pending
 
@@ -159,25 +191,39 @@ money movement, multi-user/shared budgets, advanced category breakdowns.
 
 ---
 
-## Suggested next prompt for Claude
+## What's left (and suggested next prompts)
 
-The backend is feature-complete through Phase 6 and **verified end-to-end** against real
-Supabase + Plaid Sandbox. Two natural tracks from here:
+The core MVP loop — account → bank → payday → spent-today → bills → safe-to-spend —
+works **in-app on device** plus home/lock-screen widgets. Remaining work, smallest
+and highest-value first:
 
-**Track A — Deploy + wire real providers (make it a live service):**
+**1. Bill review (iOS) — small, backend ready.**
 
-> Deploy the Nudget backend at `~/nudget` to Vercel with a hosted Supabase project. Apply
-> all migrations, set env (Supabase, Plaid Sandbox, `TOKEN_ENCRYPTION_KEY`, `CRON_SECRET`,
-> `ADMIN_USER_IDS`), and confirm the Vercel cron is registered from `vercel.json`. Then wire
-> the real providers behind the existing abstractions: back `lib/observability/report` with the
-> Sentry SDK (scrubbing on), make `emitAnalytics` POST to a configurable provider, and call the
-> `analyticsEvents` builders from each funnel route. Verify the deployed URL with a Plaid
-> Sandbox run. Keep tests green.
+> Build the bill-review screen in the Nudget iOS app (`~/nudget/ios`). List detected +
+> confirmed bills from `GET /api/bills/detected` (mark candidates "likely"), and let the
+> user confirm / reject / edit amount+date via `POST /api/bills/:id/confirm`. After a change,
+> reload the dashboard. Verify with `xcodebuild … BUILD SUCCEEDED`.
 
-**Track B — Start the iOS app (SwiftUI):**
+**2. Settings (iOS) — small, backend ready; account deletion is an App-Store requirement.**
 
-> Scaffold the Nudget iOS app (SwiftUI) against the now-stable, verified API. Build onboarding
-> (sign in → privacy consent → Plaid Link → payday setup → bill review), the dashboard (the
-> three core numbers + last-updated/stale states), and settings (notification preferences,
-> account deletion). Use the documented endpoints; surface every number with its freshness
-> context. Defer WidgetKit + APNs to the following phase.
+> Build the settings screen in the Nudget iOS app. Notification preferences via
+> `GET|POST /api/nudges/preferences`; disconnect a bank via `DELETE /api/plaid/item/:id`;
+> **delete account** via `DELETE /api/account` (with a confirm dialog), then sign out + clear
+> the Keychain and the App Group snapshot. Add the privacy-policy/terms links.
+
+**3. Deploy + wire real providers — needs your Vercel + a hosted Supabase.**
+
+> Deploy the Nudget backend to Vercel with a hosted Supabase project. Apply all migrations,
+> set env (Supabase, Plaid, `TOKEN_ENCRYPTION_KEY`, `CRON_SECRET`, `ADMIN_USER_IDS`), confirm
+> the cron from `vercel.json`. Back `lib/observability/report` with Sentry (scrubbing on),
+> make `emitAnalytics` POST to a real provider, and call the `analyticsEvents` builders from
+> each funnel route. Point the iOS `AppConfig.baseURL` at the deployed URL.
+
+**4. APNs push delivery — needs a paid Apple Developer account ($99/yr).**
+
+> Implement APNs delivery for Nudget. Store the raw device token encrypted, build the push
+> payload from the nudge `copy_key`, and send via APNs from `planAndRecordNudges` /
+> `runMorningNudges`. The nudge engine, records, preferences, and hourly schedule already exist.
+
+**Then:** TestFlight build + privacy disclosures, beta invites (20 users), and the
+launch-decision review from the roadmap.
