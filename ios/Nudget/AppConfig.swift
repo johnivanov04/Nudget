@@ -2,9 +2,10 @@ import Foundation
 
 /// App-wide configuration. For now just the backend base URL.
 ///
-/// The iOS Simulator can reach the dev server on the Mac via `localhost`. On a
-/// physical device, change this to your Mac's LAN IP (e.g. http://192.168.1.x:3000)
-/// and make sure the device is on the same network.
+/// Points at the deployed production backend. To develop against a local server,
+/// swap in `http://localhost:3000` (Simulator) or your Mac's LAN IP on a device
+/// — and make sure Secrets.swift points at the matching Supabase project, since
+/// the backend validates the JWT against its own project's secret.
 enum AppConfig {
-    static let baseURL = URL(string: "http://localhost:3000")!
+    static let baseURL = URL(string: "https://nudget-taupe.vercel.app")!
 }

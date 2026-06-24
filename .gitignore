@@ -48,3 +48,6 @@ ios/DerivedData/
 ios/build/
 *.xcuserstate
 *.xcuserdatad
+
+# vercel
+.vercel

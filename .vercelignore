@@ -1,0 +1,14 @@
+# Patterns are anchored to the repo root with a leading slash so they don't
+# accidentally match nested dirs (e.g. bare "supabase" would also exclude
+# src/lib/supabase, breaking the build).
+
+# iOS app + build artifacts (1.7GB of DerivedData / SwiftPM checkouts) — not part of the web deploy
+/ios
+
+# Vercel rebuilds these from source
+/.next
+/node_modules
+/coverage
+
+# Backend-only DB migrations — not needed by the Next.js runtime
+/supabase
