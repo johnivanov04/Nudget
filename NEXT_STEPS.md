@@ -121,9 +121,9 @@ local backend.
       (`POST /api/accounts/:id/included`), so the runway reflects spendable cash only.
 - [x] **Bill review** screen — `GET /api/bills/detected` + `POST /api/bills/:id/confirm`
       (swipe to confirm/reject, tap to edit amount+date); recomputes runway; "likely" chip.
-- [ ] **Settings** screen — notification preferences (`GET|POST /api/nudges/preferences`),
-      Plaid-item disconnect, **account deletion** (`DELETE /api/account` — privacy/App-Store
-      requirement). Backends ready; UI not built.
+- [x] **Settings** screen — notification preferences (`GET|POST /api/nudges/preferences`)
+      and **account deletion** (`DELETE /api/account`, with a confirm dialog → sign out).
+- [ ] Plaid-item disconnect UI (`DELETE /api/plaid/item/:id` — backend ready).
 - [ ] **Feedback** capture (`POST /api/feedback`). Backend ready; UI not built.
 - [ ] Apple Sign-In (optional; server JWT verification already supports it).
 
