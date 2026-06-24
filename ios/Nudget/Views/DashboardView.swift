@@ -7,6 +7,7 @@ struct DashboardView: View {
     @State private var showOnboarding = false
     @State private var showAccounts = false
     @State private var showBills = false
+    @State private var showSettings = false
     private let token: String
 
     init(token: String) {
@@ -43,6 +44,11 @@ struct DashboardView: View {
                             showAccounts = true
                         } label: {
                             Label("Accounts", systemImage: "creditcard")
+                        }
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Label("Settings", systemImage: "gearshape")
                         }
                         Button(role: .destructive) {
                             session.signOut()
@@ -84,6 +90,16 @@ struct DashboardView: View {
                 showBills = false
                 Task { await model.load() }
             }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView(
+                token: token,
+                onClose: { showSettings = false },
+                onAccountDeleted: {
+                    showSettings = false
+                    session.signOut()
+                }
+            )
         }
     }
 

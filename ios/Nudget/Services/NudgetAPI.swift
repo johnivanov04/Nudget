@@ -84,6 +84,43 @@ struct NudgetAPI {
         }
     }
 
+    /// `GET /api/nudges/preferences` — the user's notification preferences.
+    func notificationPreferences(token: String) async throws -> NotificationPreferences {
+        let data = try await getAuthed(path: "api/nudges/preferences", token: token)
+        do {
+            return try JSONDecoder().decode(NotificationPreferencesResponse.self, from: data).preferences
+        } catch {
+            throw NudgetAPIError.decoding(error)
+        }
+    }
+
+    /// `POST /api/nudges/preferences` — update notification preferences.
+    func updateNotificationPreferences(
+        token: String,
+        _ prefs: NotificationPreferences
+    ) async throws -> NotificationPreferences {
+        let body: [String: Any] = [
+            "enabled": prefs.enabled,
+            "morningEnabled": prefs.morningEnabled,
+            "billApproachEnabled": prefs.billApproachEnabled,
+            "dangerEnabled": prefs.dangerEnabled,
+            "tone": prefs.tone,
+            "morningHour": prefs.morningHour,
+            "allowExtra": prefs.allowExtra,
+        ]
+        let data = try await postAuthed(path: "api/nudges/preferences", token: token, body: body)
+        do {
+            return try JSONDecoder().decode(NotificationPreferencesResponse.self, from: data).preferences
+        } catch {
+            throw NudgetAPIError.decoding(error)
+        }
+    }
+
+    /// `DELETE /api/account` — delete the user's account and all data.
+    func deleteAccount(token: String) async throws {
+        _ = try await deleteAuthed(path: "api/account", token: token)
+    }
+
     /// `GET /api/bills/detected` — detected + confirmed recurring bills.
     func bills(token: String) async throws -> [Bill] {
         let data = try await getAuthed(path: "api/bills/detected", token: token)
@@ -189,6 +226,28 @@ struct NudgetAPI {
     private func getAuthed(path: String, token: String) async throws -> Data {
         let url = baseURL.appendingPathComponent(path)
         var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw NudgetAPIError.transport(error)
+        }
+        guard let http = response as? HTTPURLResponse else { throw NudgetAPIError.badStatus(-1) }
+        if http.statusCode == 401 { throw NudgetAPIError.unauthorized }
+        guard (200..<300).contains(http.statusCode) else {
+            throw NudgetAPIError.badStatus(http.statusCode)
+        }
+        return data
+    }
+
+    @discardableResult
+    private func deleteAuthed(path: String, token: String) async throws -> Data {
+        let url = baseURL.appendingPathComponent(path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         let data: Data
