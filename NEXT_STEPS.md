@@ -119,8 +119,8 @@ local backend.
       privacy toggle, **last-updated / stale** line, needs-setup + error states.
 - [x] **Account selection** — `GET /api/accounts` + per-account include toggle
       (`POST /api/accounts/:id/included`), so the runway reflects spendable cash only.
-- [ ] **Bill review** screen — `GET /api/bills/detected` + `POST /api/bills/:id/confirm`
-      (confirm/reject/edit). Backend ready; UI not built.
+- [x] **Bill review** screen — `GET /api/bills/detected` + `POST /api/bills/:id/confirm`
+      (swipe to confirm/reject, tap to edit amount+date); recomputes runway; "likely" chip.
 - [ ] **Settings** screen — notification preferences (`GET|POST /api/nudges/preferences`),
       Plaid-item disconnect, **account deletion** (`DELETE /api/account` — privacy/App-Store
       requirement). Backends ready; UI not built.
