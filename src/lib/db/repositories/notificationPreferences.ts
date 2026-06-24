@@ -6,6 +6,7 @@ export interface NudgeCandidate {
   userId: string;
   timezone: string;
   morningHour: number;
+  morningMinute: number;
   enabled: boolean;
   morningEnabled: boolean;
 }
@@ -41,7 +42,7 @@ export const notificationPreferencesRepo = {
   async listNudgeCandidates(): Promise<NudgeCandidate[]> {
     const { data, error } = await getSupabaseAdmin()
       .from('notification_preferences')
-      .select('user_id, enabled, morning_enabled, morning_hour, profiles(timezone)')
+      .select('user_id, enabled, morning_enabled, morning_hour, morning_minute, profiles(timezone)')
       .eq('enabled', true)
       .eq('morning_enabled', true);
     if (error) throw error;
@@ -50,6 +51,7 @@ export const notificationPreferencesRepo = {
       enabled: boolean;
       morning_enabled: boolean;
       morning_hour: number;
+      morning_minute: number;
       profiles: { timezone: string } | { timezone: string }[] | null;
     };
     return ((data as Row[]) ?? []).map((r) => {
@@ -58,6 +60,7 @@ export const notificationPreferencesRepo = {
         userId: r.user_id,
         timezone: profile?.timezone ?? 'America/Los_Angeles',
         morningHour: r.morning_hour,
+        morningMinute: r.morning_minute ?? 0,
         enabled: r.enabled,
         morningEnabled: r.morning_enabled,
       };

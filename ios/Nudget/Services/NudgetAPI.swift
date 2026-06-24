@@ -106,6 +106,7 @@ struct NudgetAPI {
             "dangerEnabled": prefs.dangerEnabled,
             "tone": prefs.tone,
             "morningHour": prefs.morningHour,
+            "morningMinute": prefs.morningMinute,
             "allowExtra": prefs.allowExtra,
         ]
         let data = try await postAuthed(path: "api/nudges/preferences", token: token, body: body)

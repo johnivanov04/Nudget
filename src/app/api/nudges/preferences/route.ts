@@ -18,6 +18,7 @@ const DEFAULTS = {
   dangerEnabled: true,
   tone: 'gentle' as const,
   morningHour: 8,
+  morningMinute: 0,
   allowExtra: false,
 };
 
@@ -29,6 +30,7 @@ function toClient(row: NotificationPreferencesRow) {
     dangerEnabled: row.danger_enabled,
     tone: row.tone,
     morningHour: row.morning_hour,
+    morningMinute: row.morning_minute,
     allowExtra: row.allow_extra,
   };
 }
@@ -67,6 +69,7 @@ export async function POST(req: NextRequest) {
     ...(b.dangerEnabled !== undefined ? { danger_enabled: b.dangerEnabled } : {}),
     ...(b.tone !== undefined ? { tone: b.tone } : {}),
     ...(b.morningHour !== undefined ? { morning_hour: b.morningHour } : {}),
+    ...(b.morningMinute !== undefined ? { morning_minute: b.morningMinute } : {}),
     ...(b.allowExtra !== undefined ? { allow_extra: b.allowExtra } : {}),
   });
 

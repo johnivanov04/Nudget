@@ -52,13 +52,35 @@ struct SettingsView: View {
                 Picker("Tone", selection: bind(\.tone)) {
                     ForEach(vm.toneOptions, id: \.self) { Text($0.capitalized).tag($0) }
                 }
-                Stepper(
-                    "Morning nudge at \(hourLabel(vm.prefs.morningHour))",
-                    value: bind(\.morningHour),
-                    in: 0...23
+                DatePicker(
+                    "Morning nudge",
+                    selection: morningTimeBinding,
+                    displayedComponents: .hourAndMinute
                 )
+                .environment(\.timeZone, .current)
             }
         }
+    }
+
+    /// Bridges the hour/minute prefs to a `Date` for the time picker (and back).
+    private var morningTimeBinding: Binding<Date> {
+        Binding(
+            get: {
+                var comps = DateComponents()
+                comps.hour = vm.prefs.morningHour
+                comps.minute = vm.prefs.morningMinute
+                return Calendar.current.date(from: comps) ?? Date()
+            },
+            set: { newDate in
+                let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+                let hour = comps.hour ?? vm.prefs.morningHour
+                let minute = comps.minute ?? vm.prefs.morningMinute
+                guard hour != vm.prefs.morningHour || minute != vm.prefs.morningMinute else { return }
+                vm.prefs.morningHour = hour
+                vm.prefs.morningMinute = minute
+                Task { await vm.save() }
+            }
+        )
     }
 
     private var aboutSection: some View {
@@ -113,12 +135,5 @@ struct SettingsView: View {
                 Task { await vm.save() }
             }
         )
-    }
-
-    private func hourLabel(_ hour: Int) -> String {
-        var comps = DateComponents()
-        comps.hour = hour
-        let date = Calendar.current.date(from: comps) ?? Date()
-        return date.formatted(.dateTime.hour())
     }
 }

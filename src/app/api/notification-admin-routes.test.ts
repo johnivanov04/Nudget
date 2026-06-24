@@ -48,6 +48,7 @@ const prefsRow = {
   danger_enabled: true,
   tone: 'gentle',
   morning_hour: 8,
+  morning_minute: 30,
   allow_extra: false,
 };
 
@@ -100,6 +101,18 @@ describe('GET/POST /api/nudges/preferences', () => {
     const body = await (await prefsGet(get('http://t/api/nudges/preferences'))).json();
     expect(body.preferences.morningEnabled).toBe(false);
     expect(body.preferences.tone).toBe('direct');
+    expect(body.preferences.morningMinute).toBe(30);
+  });
+
+  it('POST persists morningHour + morningMinute', async () => {
+    h.getUserFromRequest.mockResolvedValue(authed);
+    h.prefsUpsert.mockResolvedValue({ ...prefsRow, morning_hour: 8, morning_minute: 35 });
+    await prefsPost(post('http://t/api/nudges/preferences', { morningHour: 8, morningMinute: 35 }));
+    expect(h.prefsUpsert.mock.calls[0]![0]).toEqual({
+      user_id: 'user-A',
+      morning_hour: 8,
+      morning_minute: 35,
+    });
   });
 
   it('POST upserts only the provided fields', async () => {

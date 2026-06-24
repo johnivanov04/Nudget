@@ -11,6 +11,7 @@ import {
   toUTCDate,
   todayInTimeZone,
   hourInTimeZone,
+  minuteInTimeZone,
 } from './dateUtils';
 
 describe('dateUtils', () => {
@@ -106,6 +107,21 @@ describe('dateUtils', () => {
       const midnightUtc = new Date('2026-06-20T00:00:00.000Z');
       expect(hourInTimeZone('UTC', midnightUtc)).toBe(0);
       expect(hourInTimeZone('Not/AZone', new Date('2026-06-20T09:00:00.000Z'))).toBe(9);
+    });
+  });
+
+  describe('minuteInTimeZone', () => {
+    it('returns the local minute (timezones differ by whole hours, so minute matches UTC for these)', () => {
+      const instant = new Date('2026-06-20T15:35:00.000Z');
+      expect(minuteInTimeZone('America/Los_Angeles', instant)).toBe(35);
+      expect(minuteInTimeZone('UTC', instant)).toBe(35);
+    });
+    it('handles half-hour-offset zones (India is +5:30)', () => {
+      const instant = new Date('2026-06-20T15:05:00.000Z'); // 20:35 IST
+      expect(minuteInTimeZone('Asia/Kolkata', instant)).toBe(35);
+    });
+    it('falls back to UTC minutes for a bad zone', () => {
+      expect(minuteInTimeZone('Not/AZone', new Date('2026-06-20T09:42:00.000Z'))).toBe(42);
     });
   });
 });

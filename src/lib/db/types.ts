@@ -167,6 +167,7 @@ export interface NotificationPreferencesRow {
   danger_enabled: boolean;
   tone: NudgeTone;
   morning_hour: number;
+  morning_minute: number;
   allow_extra: boolean;
   created_at: string;
   updated_at: string;

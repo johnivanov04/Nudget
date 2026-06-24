@@ -8,6 +8,7 @@ struct NotificationPreferences: Codable, Equatable {
     var dangerEnabled: Bool
     var tone: String
     var morningHour: Int
+    var morningMinute: Int
     var allowExtra: Bool
 
     static let fallback = NotificationPreferences(
@@ -17,6 +18,7 @@ struct NotificationPreferences: Codable, Equatable {
         dangerEnabled: true,
         tone: "gentle",
         morningHour: 8,
+        morningMinute: 0,
         allowExtra: false
     )
 }

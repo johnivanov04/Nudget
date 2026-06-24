@@ -1,19 +1,33 @@
 /**
- * Scheduled morning-nudge job. A cron hits the endpoint hourly; this selects the
- * users whose chosen `morning_hour` matches the current hour *in their own
- * timezone* and fires their morning nudge (throttled by the nudge engine).
+ * Scheduled morning-nudge job. A cron hits the endpoint every few minutes; this
+ * selects the users whose chosen morning time (hour:minute, in their own
+ * timezone) has just arrived and fires their morning nudge.
+ *
+ * A user is "due" when their local time is at or just past their target, within
+ * a small catch-up window. The window tolerates cron jitter / a missed run, and
+ * the nudge engine's once-per-day throttle dedups when several runs fall inside
+ * it — so the cron should run at least every `windowMinutes`.
  */
-import { hourInTimeZone } from '@/lib/domain/dateUtils';
+import { hourInTimeZone, minuteInTimeZone } from '@/lib/domain/dateUtils';
 import { notificationPreferencesRepo, type NudgeCandidate } from '@/lib/db/repositories';
 import { planAndRecordNudges } from './nudges';
 import { reportError } from '@/lib/observability/report';
 
+export const DEFAULT_NUDGE_WINDOW_MINUTES = 15;
+
 /** Pure: which candidates are due for their morning nudge at `now`. */
-export function selectDueUsers(candidates: NudgeCandidate[], now: Date): string[] {
+export function selectDueUsers(
+  candidates: NudgeCandidate[],
+  now: Date,
+  windowMinutes: number = DEFAULT_NUDGE_WINDOW_MINUTES,
+): string[] {
   return candidates
-    .filter(
-      (c) => c.enabled && c.morningEnabled && hourInTimeZone(c.timezone, now) === c.morningHour,
-    )
+    .filter((c) => {
+      if (!c.enabled || !c.morningEnabled) return false;
+      const nowMinutes = hourInTimeZone(c.timezone, now) * 60 + minuteInTimeZone(c.timezone, now);
+      const targetMinutes = c.morningHour * 60 + c.morningMinute;
+      return nowMinutes >= targetMinutes && nowMinutes < targetMinutes + windowMinutes;
+    })
     .map((c) => c.userId);
 }
 

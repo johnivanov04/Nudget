@@ -65,6 +65,7 @@ describe('preferencesRowToEngine', () => {
       danger_enabled: true,
       tone: 'direct',
       morning_hour: 8,
+      morning_minute: 0,
       allow_extra: true,
       created_at: '',
       updated_at: '',

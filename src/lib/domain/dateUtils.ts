@@ -112,6 +112,21 @@ export function hourInTimeZone(timeZone: string, now: Date): number {
   }
 }
 
+/** The minute-of-hour (0–59) in a given IANA timezone for an instant. */
+export function minuteInTimeZone(timeZone: string, now: Date): number {
+  try {
+    const formatted = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(now);
+    const minute = parseInt(formatted, 10);
+    return Number.isFinite(minute) ? minute % 60 : now.getUTCMinutes();
+  } catch {
+    return now.getUTCMinutes();
+  }
+}
+
 /**
  * The calendar date "today" in a given IANA timezone. Pure given an injected
  * `now` instant — the runway engine decides what "today" means in the user's

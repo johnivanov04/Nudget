@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/morning-nudges",
-      "schedule": "0 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }

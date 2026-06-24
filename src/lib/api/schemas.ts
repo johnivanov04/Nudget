@@ -111,6 +111,7 @@ export const notificationPreferencesSchema = z.object({
   dangerEnabled: z.boolean().optional(),
   tone: z.enum(['gentle', 'direct', 'minimal']).optional(),
   morningHour: z.number().int().min(0).max(23).optional(),
+  morningMinute: z.number().int().min(0).max(59).optional(),
   allowExtra: z.boolean().optional(),
 });
 export type NotificationPreferencesBody = z.infer<typeof notificationPreferencesSchema>;
