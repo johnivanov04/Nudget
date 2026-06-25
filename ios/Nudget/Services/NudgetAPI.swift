@@ -216,6 +216,16 @@ struct NudgetAPI {
         )
     }
 
+    /// `POST /api/nudges/test` with `deliver` — pushes a real test notification
+    /// to this user's registered devices.
+    func sendTestPush(token: String) async throws {
+        _ = try await postAuthed(
+            path: "api/nudges/test",
+            token: token,
+            body: ["occasion": "morning", "deliver": true]
+        )
+    }
+
     /// `POST /api/onboarding/paycheck` — save the pay schedule.
     func savePaycheck(
         token: String,

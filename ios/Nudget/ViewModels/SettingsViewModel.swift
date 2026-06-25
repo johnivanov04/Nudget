@@ -5,6 +5,8 @@ final class SettingsViewModel: ObservableObject {
     @Published var prefs = NotificationPreferences.fallback
     @Published private(set) var isLoading = true
     @Published private(set) var isDeleting = false
+    @Published private(set) var isSendingTest = false
+    @Published var testResult: String?
     @Published var error: String?
 
     let toneOptions = ["gentle", "direct", "minimal"]
@@ -32,6 +34,20 @@ final class SettingsViewModel: ObservableObject {
     func save() async {
         do {
             prefs = try await api.updateNotificationPreferences(token: token, prefs)
+        } catch {
+            self.error = message(error)
+        }
+    }
+
+    /// Send a real test push to this user's registered devices.
+    func sendTestNudge() async {
+        isSendingTest = true
+        testResult = nil
+        error = nil
+        defer { isSendingTest = false }
+        do {
+            try await api.sendTestPush(token: token)
+            testResult = "Sent — check your notifications."
         } catch {
             self.error = message(error)
         }

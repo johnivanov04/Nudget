@@ -58,6 +58,21 @@ struct SettingsView: View {
                     displayedComponents: .hourAndMinute
                 )
                 .environment(\.timeZone, .current)
+
+                Button {
+                    Task { await vm.sendTestNudge() }
+                } label: {
+                    if vm.isSendingTest {
+                        ProgressView()
+                    } else {
+                        Text("Send a test notification")
+                    }
+                }
+                .disabled(vm.isSendingTest)
+
+                if let testResult = vm.testResult {
+                    Text(testResult).font(.footnote).foregroundStyle(.secondary)
+                }
             }
         }
     }
