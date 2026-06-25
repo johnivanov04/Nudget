@@ -1,13 +1,16 @@
 /**
  * POST /api/nudges/test — preview the nudge(s) that would fire right now.
  *
- * Auth-gated. Returns the planned nudge copy keys WITHOUT recording them or
- * affecting throttling — the "send me a test nudge" settings affordance.
+ * Auth-gated. By default returns the planned nudge copy keys WITHOUT recording
+ * them or affecting throttling — the "send me a test nudge" settings affordance.
+ * With `{ deliver: true }` it also pushes those nudges to the caller's own
+ * registered devices via APNs, for verifying push on a real device.
  */
 import type { NextRequest } from 'next/server';
 import { getUserFromRequest } from '@/lib/api/auth';
 import { testNudgeSchema } from '@/lib/api/schemas';
 import { previewNudges } from '@/lib/services/nudges';
+import { deliverNudges } from '@/lib/services/push';
 import { ok, badRequest, unauthorized } from '@/lib/api/responses';
 
 export async function POST(req: NextRequest) {
@@ -27,5 +30,11 @@ export async function POST(req: NextRequest) {
   }
 
   const planned = await previewNudges(user.userId, parsed.data.occasion);
+
+  if (parsed.data.deliver) {
+    const delivery = await deliverNudges(user.userId, planned);
+    return ok({ planned, delivery, note: 'delivered to your registered devices (if any)' });
+  }
+
   return ok({ planned, note: 'preview only — not sent or recorded' });
 }

@@ -118,6 +118,9 @@ export type NotificationPreferencesBody = z.infer<typeof notificationPreferences
 
 export const testNudgeSchema = z.object({
   occasion: z.enum(['morning', 'event']).default('morning'),
+  // When true, actually deliver the planned nudge(s) to this user's registered
+  // devices via APNs (for on-device push testing). Default is preview-only.
+  deliver: z.boolean().default(false),
 });
 export type TestNudgeBody = z.infer<typeof testNudgeSchema>;
 
