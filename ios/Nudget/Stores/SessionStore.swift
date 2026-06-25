@@ -26,6 +26,7 @@ final class SessionStore: ObservableObject {
     func restore() {
         if let token = Keychain.get(Self.tokenAccount) {
             state = .signedIn(token: token, email: Keychain.get(Self.emailAccount))
+            PushManager.shared.onSignedIn(token: token)
         } else {
             state = .signedOut
         }
@@ -46,6 +47,7 @@ final class SessionStore: ObservableObject {
         Keychain.delete(Self.emailAccount)
         SharedStore.clear()
         WidgetCenter.shared.reloadAllTimelines()
+        PushManager.shared.onSignedOut()
         state = .signedOut
     }
 
@@ -54,5 +56,6 @@ final class SessionStore: ObservableObject {
         Keychain.set(session.accessToken, for: Self.tokenAccount)
         Keychain.set(email, for: Self.emailAccount)
         state = .signedIn(token: session.accessToken, email: email)
+        PushManager.shared.onSignedIn(token: session.accessToken)
     }
 }

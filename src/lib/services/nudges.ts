@@ -14,6 +14,7 @@ import {
   type PlannedNudge,
 } from '@/lib/domain/nudges';
 import { computeRunwayForUser } from './runway';
+import { deliverNudges } from './push';
 import { notificationPreferencesRepo, nudgeEventsRepo } from '@/lib/db/repositories';
 import { analyticsEvents, emitAnalytics } from '@/lib/analytics/events';
 import type { NotificationPreferencesRow } from '@/lib/db/types';
@@ -70,6 +71,12 @@ export async function planAndRecordNudges(
         copyKey: nudge.copyKey,
       }),
     );
+  }
+
+  // Best-effort APNs delivery. No-ops if push isn't configured, and never throws
+  // — recording the nudge above is the source of truth, delivery is downstream.
+  if (planned.length > 0) {
+    await deliverNudges(userId, planned, now.getTime());
   }
 
   return { status: planned.length > 0 ? 'sent' : 'none', planned };

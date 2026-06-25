@@ -1,11 +1,13 @@
 /**
  * GET /api/cron/morning-nudges — fire scheduled morning nudges.
  *
- * NOT user-authed: authenticated by the `CRON_SECRET` bearer that Vercel Cron
- * attaches automatically. Selects users whose chosen `morning_hour` matches the
- * current hour in their timezone and sends each their (throttled) morning nudge.
+ * NOT user-authed: authenticated by the `CRON_SECRET` bearer that the scheduler
+ * attaches. Selects users whose chosen morning time (hour:minute, in their
+ * timezone) has just arrived and sends each their (throttled) morning nudge.
  *
- * Configured to run hourly — see `vercel.json`.
+ * Not scheduled in `vercel.json` on the free tier (Hobby = daily crons only);
+ * for minute-precision firing run it every few minutes via Vercel Pro cron or
+ * an external scheduler hitting this endpoint with the CRON_SECRET bearer.
  */
 import type { NextRequest } from 'next/server';
 import { isValidCronRequest } from '@/lib/api/cronAuth';

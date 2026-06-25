@@ -150,8 +150,10 @@ export interface DeviceTokenRow {
   id: string;
   user_id: string;
   platform: DevicePlatform;
-  /** SHA-256 of the device token — never the raw token. */
+  /** SHA-256 of the device token — the privacy-safe dedup key, never the raw token. */
   token_hash: string;
+  /** AES-256-GCM ciphertext (base64) of the raw token — what APNs delivery decrypts. */
+  token_encrypted: string | null;
   enabled: boolean;
   created_at: string;
   updated_at: string;

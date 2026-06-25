@@ -42,6 +42,14 @@ export const envSchema = z.object({
       /^[0-9a-fA-F]{64}$/,
       'TOKEN_ENCRYPTION_KEY must be 64 hex chars (32 bytes). Generate with: openssl rand -hex 32',
     ),
+
+  // --- APNs (server only; all optional — push delivery no-ops if unset) ---
+  // Token-based auth: a single .p8 key works across environments.
+  APNS_KEY_ID: z.string().optional(), // 10-char Key ID from the APNs auth key
+  APNS_TEAM_ID: z.string().optional(), // 10-char Apple Team ID
+  APNS_PRIVATE_KEY: z.string().optional(), // the .p8 PEM contents (literal or \n-escaped)
+  APNS_TOPIC: z.string().optional(), // app bundle id, e.g. app.nudget.ios
+  APNS_ENV: z.enum(['sandbox', 'production']).optional(), // which APNs host to hit
 });
 
 export type Env = z.infer<typeof envSchema>;

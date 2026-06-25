@@ -9,6 +9,7 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: VYC3499K46
 
 packages:
   LinkKit:
@@ -37,6 +38,9 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.app.nudget.ios
+        # Dev push environment. Xcode flips this to "production" when archiving for
+        # TestFlight/App Store; a dev build's token only works against APNs sandbox.
+        aps-environment: development
     info:
       path: Nudget/Info.plist
       properties:

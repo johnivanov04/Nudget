@@ -206,6 +206,16 @@ struct NudgetAPI {
         _ = try await postAuthed(path: "api/onboarding/privacy", token: token, body: [:])
     }
 
+    /// `POST /api/device/register` — register this device's APNs token for push.
+    /// The backend stores it encrypted; the raw token is never returned.
+    func registerDevice(token: String, deviceToken: String) async throws {
+        _ = try await postAuthed(
+            path: "api/device/register",
+            token: token,
+            body: ["deviceToken": deviceToken, "platform": "ios"]
+        )
+    }
+
     /// `POST /api/onboarding/paycheck` — save the pay schedule.
     func savePaycheck(
         token: String,
