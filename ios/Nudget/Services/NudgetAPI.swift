@@ -217,13 +217,18 @@ struct NudgetAPI {
     }
 
     /// `POST /api/nudges/test` with `deliver` — pushes a real test notification
-    /// to this user's registered devices.
-    func sendTestPush(token: String) async throws {
-        _ = try await postAuthed(
+    /// to this user's registered devices. Returns how many were delivered.
+    func sendTestPush(token: String) async throws -> Int {
+        let data = try await postAuthed(
             path: "api/nudges/test",
             token: token,
             body: ["occasion": "morning", "deliver": true]
         )
+        struct Resp: Decodable {
+            struct Delivery: Decodable { let delivered: Int }
+            let delivery: Delivery?
+        }
+        return (try? JSONDecoder().decode(Resp.self, from: data))?.delivery?.delivered ?? 0
     }
 
     /// `POST /api/onboarding/paycheck` — save the pay schedule.

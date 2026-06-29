@@ -1,8 +1,27 @@
 import UIKit
+import UserNotifications
 
-/// Minimal app delegate, used only to receive the APNs device token (SwiftUI has
-/// no native hook for it). Everything else stays in the SwiftUI lifecycle.
-final class AppDelegate: NSObject, UIApplicationDelegate {
+/// Minimal app delegate: receives the APNs device token (SwiftUI has no native
+/// hook for it) and presents notifications while the app is foregrounded.
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    /// Show banners + play sound even when the app is open (otherwise iOS hides
+    /// foreground notifications, which looks like "push isn't working").
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .list, .sound])
+    }
+
     func application(
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data

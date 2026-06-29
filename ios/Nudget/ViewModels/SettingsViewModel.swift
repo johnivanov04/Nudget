@@ -46,8 +46,10 @@ final class SettingsViewModel: ObservableObject {
         error = nil
         defer { isSendingTest = false }
         do {
-            try await api.sendTestPush(token: token)
-            testResult = "Sent — check your notifications."
+            let delivered = try await api.sendTestPush(token: token)
+            testResult = delivered > 0
+                ? "Sent to \(delivered) device\(delivered == 1 ? "" : "s")."
+                : "Nothing delivered — allow notifications, then reopen the app so it can register."
         } catch {
             self.error = message(error)
         }
