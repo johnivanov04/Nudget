@@ -33,14 +33,16 @@ targets:
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1" # iPhone
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     entitlements:
       path: Nudget/Nudget.entitlements
       properties:
         com.apple.security.application-groups:
           - group.app.nudget.ios
-        # Dev push environment. Xcode flips this to "production" when archiving for
-        # TestFlight/App Store; a dev build's token only works against APNs sandbox.
-        aps-environment: development
+        # APNs environment. TestFlight/App Store builds use PRODUCT tokens, so this
+        # is "production". NOTE: local Xcode dev builds then push via sandbox tokens,
+        # which won't deliver against the production host — test push via TestFlight.
+        aps-environment: production
     info:
       path: Nudget/Info.plist
       properties:
@@ -52,6 +54,9 @@ targets:
         # Allow the dev server over http://localhost while developing.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        # Standard HTTPS only → exempt from export compliance; set so TestFlight
+        # doesn't ask the encryption question on every build.
+        ITSAppUsesNonExemptEncryption: false
 
   NudgetWidget:
     type: app-extension
