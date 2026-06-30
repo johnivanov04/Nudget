@@ -35,7 +35,10 @@ struct SignInView: View {
             }
             .pickerStyle(.segmented)
             .onChange(of: isSignUp) { _, _ in
+                // Clear everything so each tab starts fresh.
                 message = nil
+                email = ""
+                password = ""
                 confirmPassword = ""
             }
 
