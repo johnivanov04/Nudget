@@ -5,9 +5,13 @@ struct SignInView: View {
 
     @State private var email = ""
     @State private var password = ""
+    @State private var confirmPassword = ""
     @State private var isWorking = false
     @State private var message: String?
     @State private var isSignUp = false
+
+    /// Sign-up only: the two password fields must match before we allow submit.
+    private var passwordsMatch: Bool { password == confirmPassword }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -30,7 +34,10 @@ struct SignInView: View {
                 Text("Create Account").tag(true)
             }
             .pickerStyle(.segmented)
-            .onChange(of: isSignUp) { _, _ in message = nil }
+            .onChange(of: isSignUp) { _, _ in
+                message = nil
+                confirmPassword = ""
+            }
 
             // Mode-specific heading.
             VStack(spacing: 6) {
@@ -52,10 +59,14 @@ struct SignInView: View {
                 SecureField("Password", text: $password)
                     .textContentType(isSignUp ? .newPassword : .password)
                 if isSignUp {
-                    Text("Use at least 6 characters.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    SecureField("Confirm password", text: $confirmPassword)
+                        .textContentType(.newPassword)
+
+                    if !confirmPassword.isEmpty && !passwordsMatch {
+                        hint("Passwords don't match.", color: Theme.risk(.danger))
+                    } else {
+                        hint("Use at least 6 characters.", color: .secondary)
+                    }
                 }
             }
             .textFieldStyle(.roundedBorder)
@@ -78,7 +89,10 @@ struct SignInView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(isWorking || email.isEmpty || password.isEmpty)
+            .disabled(
+                isWorking || email.isEmpty || password.isEmpty
+                    || (isSignUp && (confirmPassword.isEmpty || !passwordsMatch))
+            )
 
             Spacer()
             Spacer()
@@ -89,7 +103,20 @@ struct SignInView: View {
         .animation(.default, value: isSignUp)
     }
 
+    /// A small left-aligned caption used under the password fields.
+    private func hint(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(color)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func submit() {
+        // Defensive: the button is already disabled on mismatch, but guard anyway.
+        if isSignUp && !passwordsMatch {
+            message = "Passwords don't match."
+            return
+        }
         isWorking = true
         message = nil
         Task {
