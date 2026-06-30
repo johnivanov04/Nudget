@@ -32,6 +32,7 @@ struct DashboardView: View {
                 }
             }
             .navigationTitle("Nudget")
+            .background(Theme.canvas)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
@@ -107,43 +108,66 @@ struct DashboardView: View {
 
     private func loadedState(_ s: RunwaySnapshotView) -> some View {
         ScrollView {
-            VStack(spacing: 24) {
-                RiskBadge(risk: s.risk)
-
-                VStack(spacing: 4) {
-                    Text("Safe to spend")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text(masked(s.safeToSpend))
-                        .font(.system(size: 52, weight: .bold, design: .rounded))
-                        .contentTransition(.numericText())
-                    if let days = s.daysUntilPayday {
-                        Text("until payday · \(Format.shortDate(s.paydayDate)) (in \(days) day\(days == 1 ? "" : "s"))")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+            VStack(spacing: 16) {
+                heroCard(s)
 
                 HStack(spacing: 12) {
-                    StatTile(label: "Spent today", value: masked(s.spentToday))
-                    StatTile(label: "Bills before payday", value: masked(s.billsBeforePayday))
+                    StatTile(
+                        icon: "cart.fill",
+                        label: "Spent today",
+                        value: masked(s.spentToday)
+                    )
+                    StatTile(
+                        icon: "calendar",
+                        label: "Bills before payday",
+                        value: masked(s.billsBeforePayday)
+                    )
                 }
 
-                HStack(spacing: 6) {
-                    if s.isStale {
-                        Image(systemName: "clock.badge.exclamationmark")
-                        Text("Data may be out of date")
-                    } else {
-                        Text(Format.relativeUpdated(s.lastUpdatedAt))
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(s.isStale ? Color.orange : Color.secondary)
+                updatedFooter(s)
             }
-            .padding(24)
+            .padding(20)
             .frame(maxWidth: .infinity)
         }
         .refreshable { await model.load() }
+    }
+
+    private func heroCard(_ s: RunwaySnapshotView) -> some View {
+        VStack(spacing: 16) {
+            RiskBadge(risk: s.risk)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(spacing: 6) {
+                Text("SAFE TO SPEND")
+                    .font(.caption.weight(.semibold))
+                    .tracking(1.6)
+                    .foregroundStyle(.secondary)
+                Text(masked(s.safeToSpend))
+                    .font(.system(size: 58, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .contentTransition(.numericText())
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                if let days = s.daysUntilPayday {
+                    Text("until payday · \(Format.shortDate(s.paydayDate)) · in \(days) day\(days == 1 ? "" : "s")")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .card(padding: 28)
+    }
+
+    private func updatedFooter(_ s: RunwaySnapshotView) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: s.isStale ? "clock.badge.exclamationmark" : "checkmark.seal.fill")
+            Text(s.isStale ? "Data may be out of date" : Format.relativeUpdated(s.lastUpdatedAt))
+        }
+        .font(.caption)
+        .foregroundStyle(s.isStale ? Theme.risk(.caution) : Color.secondary)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 2)
     }
 
     private var needsSetupState: some View {
@@ -177,19 +201,29 @@ struct DashboardView: View {
 
 /// A labeled stat card used for the secondary numbers.
 struct StatTile: View {
+    let icon: String
     let label: String
     let value: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.brand)
+                .frame(width: 34, height: 34)
+                .background(
+                    Theme.brand.opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                )
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(.title3.weight(.semibold))
+                .monospacedDigit()
+                .contentTransition(.numericText())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+        .card(padding: 16)
     }
 }

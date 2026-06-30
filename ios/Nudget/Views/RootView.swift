@@ -15,6 +15,7 @@ struct RootView: View {
                 DashboardView(token: token)
             }
         }
+        .tint(Theme.brand)
         .task {
             if case .loading = session.state { session.restore() }
         }

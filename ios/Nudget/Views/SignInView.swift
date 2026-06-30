@@ -10,15 +10,27 @@ struct SignInView: View {
     @State private var isSignUp = false
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 28) {
             Spacer()
 
-            VStack(spacing: 8) {
-                Text("Nudget")
-                    .font(.largeTitle.weight(.bold))
-                Text("Am I safe to spend before payday?")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            VStack(spacing: 16) {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 40, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 84, height: 84)
+                    .background(
+                        Theme.brand,
+                        in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    )
+                    .shadow(color: Theme.brand.opacity(0.35), radius: 16, x: 0, y: 8)
+
+                VStack(spacing: 6) {
+                    Text("Nudget")
+                        .font(.largeTitle.weight(.bold))
+                    Text("Am I safe to spend before payday?")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             VStack(spacing: 12) {
@@ -41,9 +53,10 @@ struct SignInView: View {
 
             Button(action: submit) {
                 if isWorking {
-                    ProgressView()
+                    ProgressView().tint(.white)
                 } else {
                     Text(isSignUp ? "Create account" : "Sign in")
+                        .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -58,8 +71,11 @@ struct SignInView: View {
             .font(.footnote)
 
             Spacer()
+            Spacer()
         }
-        .padding(24)
+        .padding(28)
+        .frame(maxWidth: .infinity)
+        .background(Theme.canvas)
     }
 
     private func submit() {

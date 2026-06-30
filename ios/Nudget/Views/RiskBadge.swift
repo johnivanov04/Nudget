@@ -7,10 +7,12 @@ struct RiskBadge: View {
 
     var body: some View {
         Label(title, systemImage: icon)
-            .font(.subheadline.weight(.semibold))
+            .font(.caption.weight(.bold))
+            .textCase(.uppercase)
+            .tracking(0.5)
             .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(color.opacity(0.15), in: Capsule())
+            .padding(.vertical, 7)
+            .background(color.opacity(0.14), in: Capsule())
             .foregroundStyle(color)
     }
 
@@ -32,12 +34,5 @@ struct RiskBadge: View {
         }
     }
 
-    var color: Color {
-        switch risk {
-        case .safe: return .green
-        case .caution: return .orange
-        case .danger: return .red
-        case .unknown: return .secondary
-        }
-    }
+    var color: Color { Theme.risk(risk) }
 }
