@@ -10,27 +10,37 @@ struct SignInView: View {
     @State private var isSignUp = false
 
     var body: some View {
-        VStack(spacing: 28) {
+        VStack(spacing: 24) {
             Spacer()
 
-            VStack(spacing: 16) {
-                Image(systemName: "calendar.badge.clock")
-                    .font(.system(size: 40, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 84, height: 84)
-                    .background(
-                        Theme.brand,
-                        in: RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    )
-                    .shadow(color: Theme.brand.opacity(0.35), radius: 16, x: 0, y: 8)
+            // Brand mark — constant, identifies the app.
+            Image(systemName: "calendar.badge.clock")
+                .font(.system(size: 38, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 80, height: 80)
+                .background(
+                    Theme.brand,
+                    in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+                )
+                .shadow(color: Theme.brand.opacity(0.35), radius: 16, x: 0, y: 8)
 
-                VStack(spacing: 6) {
-                    Text("Nudget")
-                        .font(.largeTitle.weight(.bold))
-                    Text("Am I safe to spend before payday?")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+            // Mode switcher — makes the current screen unmistakable.
+            Picker("Mode", selection: $isSignUp) {
+                Text("Sign In").tag(false)
+                Text("Create Account").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: isSignUp) { _, _ in message = nil }
+
+            // Mode-specific heading.
+            VStack(spacing: 6) {
+                Text(isSignUp ? "Create your account" : "Welcome back")
+                    .font(.title2.weight(.bold))
+                Text(isSignUp
+                     ? "Start tracking what's safe to spend."
+                     : "Sign in to see your runway.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
 
             VStack(spacing: 12) {
@@ -41,6 +51,12 @@ struct SignInView: View {
                     .autocorrectionDisabled()
                 SecureField("Password", text: $password)
                     .textContentType(isSignUp ? .newPassword : .password)
+                if isSignUp {
+                    Text("Use at least 6 characters.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .textFieldStyle(.roundedBorder)
 
@@ -64,18 +80,13 @@ struct SignInView: View {
             .controlSize(.large)
             .disabled(isWorking || email.isEmpty || password.isEmpty)
 
-            Button(isSignUp ? "Have an account? Sign in" : "New here? Create an account") {
-                isSignUp.toggle()
-                message = nil
-            }
-            .font(.footnote)
-
             Spacer()
             Spacer()
         }
         .padding(28)
         .frame(maxWidth: .infinity)
         .background(Theme.canvas)
+        .animation(.default, value: isSignUp)
     }
 
     private func submit() {
