@@ -19,11 +19,13 @@ struct OnboardingView: View {
                 if let error = vm.error {
                     Text(error)
                         .font(.footnote)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Theme.risk(.danger))
                         .multilineTextAlignment(.center)
                 }
             }
             .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.canvas)
             .navigationTitle("Set up Nudget")
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -50,66 +52,80 @@ struct OnboardingView: View {
     // MARK: - Steps
 
     private var privacyStep: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "lock.shield")
-                .font(.system(size: 56))
-                .foregroundStyle(.tint)
-            Text("Your data, handled with care")
-                .font(.title2.weight(.bold))
-                .multilineTextAlignment(.center)
-            VStack(alignment: .leading, spacing: 12) {
+            BrandMark(systemName: "lock.shield.fill")
+            VStack(spacing: 8) {
+                Text("Your data, handled with care")
+                    .font(.title2.weight(.bold))
+                    .multilineTextAlignment(.center)
+                Text("A quick look at how Nudget treats your information.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            VStack(alignment: .leading, spacing: 16) {
                 bullet("Nudget never stores your bank login.")
                 bullet("We use Plaid to read balances and recent transactions.")
-                bullet("You can disconnect your bank or delete your account anytime.")
+                bullet("Disconnect your bank or delete your account anytime.")
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .card()
             Spacer()
             primaryButton("I agree & continue") { await vm.acceptPrivacy() }
         }
     }
 
     private var paydayStep: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 24) {
             Spacer()
-            Text("When do you get paid?")
-                .font(.title2.weight(.bold))
-            Text("This sets the runway window — today through your next payday.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
             VStack(alignment: .leading, spacing: 8) {
-                Text("How often").font(.subheadline.weight(.semibold))
-                Picker("How often", selection: $vm.frequency) {
-                    ForEach(PaydayFrequency.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.menu)
+                Text("When do you get paid?")
+                    .font(.title2.weight(.bold))
+                Text("This sets the runway window — today through your next payday.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
 
-            DatePicker(
-                "Last payday",
-                selection: $vm.lastPaycheckDate,
-                in: ...Date(),
-                displayedComponents: .date
-            )
+            VStack(spacing: 0) {
+                HStack {
+                    Text("How often")
+                    Spacer()
+                    Picker("How often", selection: $vm.frequency) {
+                        ForEach(PaydayFrequency.allCases) { Text($0.label).tag($0) }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                }
+                Divider().padding(.vertical, 14)
+                DatePicker(
+                    "Last payday",
+                    selection: $vm.lastPaycheckDate,
+                    in: ...Date(),
+                    displayedComponents: .date
+                )
+            }
+            .card()
 
             Spacer()
             primaryButton("Continue") { await vm.savePayday() }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var connectBankStep: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "building.columns")
-                .font(.system(size: 56))
-                .foregroundStyle(.tint)
-            Text("Connect your bank")
-                .font(.title2.weight(.bold))
-                .multilineTextAlignment(.center)
-            Text("Securely link an account through Plaid so Nudget can calculate your runway. Nudget never sees your bank login.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            BrandMark(systemName: "building.columns.fill")
+            VStack(spacing: 8) {
+                Text("Connect your bank")
+                    .font(.title2.weight(.bold))
+                    .multilineTextAlignment(.center)
+                Text("Securely link an account through Plaid so Nudget can calculate your runway. Nudget never sees your bank login.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
             Spacer()
             primaryButton("Connect a bank") { await vm.beginLink() }
             Button("Skip for now") { vm.skip() }
@@ -120,9 +136,11 @@ struct OnboardingView: View {
     // MARK: - Helpers
 
     private func bullet(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Theme.risk(.safe))
             Text(text)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -131,9 +149,9 @@ struct OnboardingView: View {
             Task { await action() }
         } label: {
             if vm.isWorking {
-                ProgressView().frame(maxWidth: .infinity)
+                ProgressView().tint(.white).frame(maxWidth: .infinity)
             } else {
-                Text(title).frame(maxWidth: .infinity)
+                Text(title).fontWeight(.semibold).frame(maxWidth: .infinity)
             }
         }
         .buttonStyle(.borderedProminent)

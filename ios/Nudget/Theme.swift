@@ -39,3 +39,22 @@ struct CardStyle: ViewModifier {
 extension View {
     func card(padding: CGFloat = 20) -> some View { modifier(CardStyle(padding: padding)) }
 }
+
+/// A brand-tinted rounded-square icon mark (sign-in, onboarding step headers).
+/// Keeps the glyph treatment identical everywhere it appears.
+struct BrandMark: View {
+    let systemName: String
+    var size: CGFloat = 80
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: size * 0.46, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .background(
+                Theme.brand,
+                in: RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+            )
+            .shadow(color: Theme.brand.opacity(0.35), radius: size * 0.2, x: 0, y: size * 0.1)
+    }
+}

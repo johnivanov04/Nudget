@@ -65,7 +65,7 @@ struct SettingsView: View {
                     if vm.isSendingTest {
                         ProgressView()
                     } else {
-                        Text("Send a test notification")
+                        Label("Send a test notification", systemImage: "bell.badge")
                     }
                 }
                 .disabled(vm.isSendingTest)

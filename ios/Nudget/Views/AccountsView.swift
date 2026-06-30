@@ -44,7 +44,7 @@ struct AccountsView: View {
                 }
 
                 if let error = vm.error {
-                    Text(error).foregroundStyle(.red).font(.footnote)
+                    Text(error).foregroundStyle(Theme.risk(.danger)).font(.footnote)
                 }
             }
         }
@@ -52,14 +52,24 @@ struct AccountsView: View {
 
     private func row(_ account: Account) -> some View {
         Toggle(isOn: binding(for: account)) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(account.displayName)
-                HStack(spacing: 6) {
-                    if let mask = account.mask { Text("•••• \(mask)") }
-                    Text(Format.currency(account.balance))
+            HStack(spacing: 12) {
+                Image(systemName: "building.columns.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.brand)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Theme.brand.opacity(0.12),
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(account.displayName)
+                    HStack(spacing: 6) {
+                        if let mask = account.mask { Text("•••• \(mask)") }
+                        Text(Format.currency(account.balance))
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
         }
         .disabled(vm.togglingIds.contains(account.id))

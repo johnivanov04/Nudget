@@ -42,7 +42,7 @@ struct BillsView: View {
         } else {
             List {
                 if let error = vm.error {
-                    Section { Text(error).foregroundStyle(.red).font(.footnote) }
+                    Section { Text(error).foregroundStyle(Theme.risk(.danger)).font(.footnote) }
                 }
                 Section {
                     ForEach(vm.bills) { bill in
@@ -73,13 +73,13 @@ struct BillsView: View {
             } else if bill.isConfirmed {
                 Label("Confirmed", systemImage: "checkmark.seal.fill")
                     .labelStyle(.iconOnly)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Theme.risk(.safe))
             } else {
                 Text("Likely")
                     .font(.caption2.weight(.semibold))
                     .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(.orange.opacity(0.15), in: Capsule())
-                    .foregroundStyle(.orange)
+                    .background(Theme.risk(.caution).opacity(0.15), in: Capsule())
+                    .foregroundStyle(Theme.risk(.caution))
             }
         }
         .contentShape(Rectangle())
@@ -96,7 +96,7 @@ struct BillsView: View {
                 } label: {
                     Label("Confirm", systemImage: "checkmark")
                 }
-                .tint(.green)
+                .tint(Theme.risk(.safe))
             }
         }
     }
