@@ -32,8 +32,12 @@ struct DashboardView: View {
                 }
             }
             .navigationTitle("Nudget")
-            .background(Theme.canvas)
+            .navigationBarTitleDisplayMode(.inline)
+            .background(AmbientBackground(tint: backgroundTint))
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Wordmark()
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
                         Button {
@@ -102,6 +106,12 @@ struct DashboardView: View {
                 }
             )
         }
+    }
+
+    /// The ambient background tint follows the current risk once loaded.
+    private var backgroundTint: Color {
+        if case .loaded(let s) = model.state { return Theme.risk(s.risk) }
+        return Theme.brand
     }
 
     // MARK: - States

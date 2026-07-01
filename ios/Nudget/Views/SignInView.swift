@@ -102,7 +102,7 @@ struct SignInView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity)
-        .background(Theme.canvas)
+        .background(AmbientBackground())
         .animation(.default, value: isSignUp)
     }
 

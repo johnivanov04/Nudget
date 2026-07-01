@@ -25,7 +25,7 @@ struct OnboardingView: View {
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.canvas)
+            .background(AmbientBackground())
             .navigationTitle("Set up Nudget")
             .navigationBarTitleDisplayMode(.inline)
         }
