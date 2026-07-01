@@ -12,6 +12,8 @@ final class DashboardViewModel: ObservableObject {
     }
 
     @Published private(set) var state: State = .loading
+    /// Confirmed bills due on or before payday — the dashboard "upcoming" peek.
+    @Published private(set) var upcomingBills: [Bill] = []
 
     private let api: NudgetAPI
     private let token: String
@@ -28,7 +30,9 @@ final class DashboardViewModel: ObservableObject {
             if let snapshot = response.snapshot, !snapshot.needsData {
                 state = .loaded(snapshot)
                 publishToWidget(snapshot)
+                await loadUpcomingBills(before: snapshot.paydayDate)
             } else {
+                upcomingBills = []
                 state = .needsSetup
             }
         } catch NudgetAPIError.unauthorized {
@@ -36,6 +40,22 @@ final class DashboardViewModel: ObservableObject {
         } catch {
             state = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }
+    }
+
+    /// Fetch confirmed bills due on or before payday (best-effort — a failure
+    /// here shouldn't break the dashboard). ISO `yyyy-MM-dd` strings sort/compare
+    /// chronologically, so string comparison is safe.
+    private func loadUpcomingBills(before payday: String?) async {
+        guard let payday else { upcomingBills = []; return }
+        let all: [Bill] = (try? await api.bills(token: token)) ?? []
+        let due: [Bill] = all.filter { bill in
+            guard bill.isConfirmed, let date = bill.nextExpectedDate else { return false }
+            return date <= payday
+        }
+        let sorted: [Bill] = due.sorted { lhs, rhs in
+            (lhs.nextExpectedDate ?? "") < (rhs.nextExpectedDate ?? "")
+        }
+        upcomingBills = Array(sorted.prefix(3))
     }
 
     /// Mirror the latest snapshot into the App Group + refresh the widget.

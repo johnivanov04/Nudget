@@ -121,6 +121,10 @@ struct DashboardView: View {
             VStack(spacing: 16) {
                 heroCard(s)
 
+                if let daily = s.dailySafeSpend {
+                    dailyAllowanceCard(daily)
+                }
+
                 HStack(spacing: 12) {
                     StatTile(
                         icon: "cart.fill",
@@ -134,12 +138,118 @@ struct DashboardView: View {
                     )
                 }
 
+                if !model.upcomingBills.isEmpty {
+                    upcomingBillsSection
+                }
+
+                if let insight = insight(for: s) {
+                    insightCard(insight, risk: s.risk)
+                }
+
                 updatedFooter(s)
             }
             .padding(20)
             .frame(maxWidth: .infinity)
         }
         .refreshable { await model.load() }
+    }
+
+    // MARK: - Dashboard sections
+
+    private func dailyAllowanceCard(_ daily: Double) -> some View {
+        HStack(spacing: 14) {
+            iconChip("wallet.pass.fill")
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Daily allowance")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("\(masked(daily)) a day")
+                    .font(.title3.weight(.bold))
+                    .contentTransition(.numericText())
+                Text("to stay safe until payday")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .card(padding: 16)
+    }
+
+    private var upcomingBillsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Upcoming bills")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Button("See all") { showBills = true }
+                    .font(.subheadline)
+            }
+            VStack(spacing: 0) {
+                ForEach(Array(model.upcomingBills.enumerated()), id: \.element.id) { index, bill in
+                    if index > 0 { Divider() }
+                    billRow(bill)
+                }
+            }
+            .card(padding: 16)
+        }
+    }
+
+    private func billRow(_ bill: Bill) -> some View {
+        HStack(spacing: 12) {
+            iconChip("calendar.badge.clock", size: 36)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(bill.displayName)
+                if let date = bill.nextExpectedDate {
+                    Text(Format.shortDate(date))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Text(masked(bill.amountEstimate))
+                .font(.subheadline.weight(.semibold))
+        }
+        .padding(.vertical, 8)
+    }
+
+    private func insightCard(_ text: String, risk: RiskLevel) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "sparkles")
+                .foregroundStyle(Theme.risk(risk))
+            Text(text)
+                .font(.subheadline)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .card(padding: 16)
+    }
+
+    /// A friendly, non-shaming one-liner keyed off the current state.
+    private func insight(for s: RunwaySnapshotView) -> String? {
+        switch s.risk {
+        case .danger:
+            return "You're past your safe-to-spend for now — easing up before payday will help."
+        case .caution:
+            return "It's a little tight. Keeping spending light keeps you covered until payday."
+        case .safe:
+            return s.spentToday == 0
+                ? "Nothing spent yet today — you're on track."
+                : "You're on track for payday. Nice work."
+        case .unknown:
+            return nil
+        }
+    }
+
+    /// A small brand-tinted icon chip used across the dashboard cards.
+    private func iconChip(_ name: String, size: CGFloat = 40) -> some View {
+        Image(systemName: name)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Theme.brand)
+            .frame(width: size, height: size)
+            .background(
+                Theme.brand.opacity(0.12),
+                in: RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+            )
     }
 
     private func heroCard(_ s: RunwaySnapshotView) -> some View {
