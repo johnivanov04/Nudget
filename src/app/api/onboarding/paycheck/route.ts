@@ -1,9 +1,9 @@
 /**
- * POST /api/onboarding/paycheck
+ * /api/onboarding/paycheck
  *
- * Authenticates, validates the payday schedule, computes the next paydays with
- * the pure engine, and PERSISTS the schedule (with the computed next payday) for
- * the caller. One active schedule per user (upsert on user_id).
+ * GET returns the caller's current schedule (for the "edit payday" screen).
+ * POST validates + persists a payday schedule (upsert, one per user), computing
+ * the next paydays with the pure engine.
  */
 import type { NextRequest } from 'next/server';
 import { getUserFromRequest } from '@/lib/api/auth';
@@ -11,6 +11,24 @@ import { paycheckScheduleSchema } from '@/lib/api/schemas';
 import { previewNextPaydays } from '@/lib/api/runwayService';
 import { paycheckSchedulesRepo } from '@/lib/db/repositories';
 import { ok, badRequest, unauthorized } from '@/lib/api/responses';
+
+export async function GET(req: NextRequest) {
+  const user = await getUserFromRequest(req);
+  if (!user) return unauthorized();
+
+  const row = await paycheckSchedulesRepo.getByUser(user.userId);
+  if (!row) return ok({ schedule: null });
+
+  return ok({
+    schedule: {
+      id: row.id,
+      frequency: row.frequency,
+      lastPaycheckDate: row.last_paycheck_date,
+      nextPaycheckDate: row.next_paycheck_date,
+      weekendRule: row.weekend_rule,
+    },
+  });
+}
 
 export async function POST(req: NextRequest) {
   const user = await getUserFromRequest(req);
