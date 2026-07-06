@@ -1,0 +1,33 @@
+name: Morning nudges
+
+# Fires the scheduled morning-nudge job. Vercel Hobby crons only run once/day, so
+# we drive the endpoint from GitHub Actions instead (free & unlimited on public
+# repos). The backend selects users whose local morning time has just arrived
+# (15-min catch-up window) and de-dupes via a once-per-day throttle, so occasional
+# scheduler jitter is fine — a user still gets exactly one morning nudge.
+on:
+  schedule:
+    - cron: "*/5 * * * *" # every 5 minutes (GitHub's minimum interval)
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+# Don't stack runs if one is slow.
+concurrency:
+  group: morning-nudges
+  cancel-in-progress: false
+
+jobs:
+  fire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Trigger morning-nudge cron endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            https://nudget-taupe.vercel.app/api/cron/morning-nudges)
+          echo "HTTP $code"
+          cat /tmp/resp.json || true
+          echo
+          test "$code" = "200"
