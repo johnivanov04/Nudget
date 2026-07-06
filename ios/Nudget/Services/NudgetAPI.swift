@@ -122,6 +122,31 @@ struct NudgetAPI {
         _ = try await deleteAuthed(path: "api/account", token: token)
     }
 
+    /// `GET /api/onboarding/paycheck` — the caller's current pay schedule (nil if unset).
+    func paycheckSchedule(token: String) async throws -> PaydaySchedule? {
+        let data = try await getAuthed(path: "api/onboarding/paycheck", token: token)
+        do {
+            return try JSONDecoder().decode(PaydayScheduleResponse.self, from: data).schedule
+        } catch {
+            throw NudgetAPIError.decoding(error)
+        }
+    }
+
+    /// `GET /api/plaid/items` — the caller's linked banks.
+    func linkedBanks(token: String) async throws -> [LinkedBank] {
+        let data = try await getAuthed(path: "api/plaid/items", token: token)
+        do {
+            return try JSONDecoder().decode(LinkedBanksResponse.self, from: data).items
+        } catch {
+            throw NudgetAPIError.decoding(error)
+        }
+    }
+
+    /// `DELETE /api/plaid/item/:id` — disconnect a linked bank (recomputes runway).
+    func disconnectBank(token: String, itemId: String) async throws {
+        _ = try await deleteAuthed(path: "api/plaid/item/\(itemId)", token: token)
+    }
+
     /// `GET /api/bills/detected` — detected + confirmed recurring bills.
     func bills(token: String) async throws -> [Bill] {
         let data = try await getAuthed(path: "api/bills/detected", token: token)

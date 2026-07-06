@@ -3,6 +3,7 @@ import SwiftUI
 struct AccountsView: View {
     @StateObject private var vm: AccountsViewModel
     private let onClose: () -> Void
+    @State private var bankToDisconnect: LinkedBank?
 
     init(token: String, onClose: @escaping () -> Void) {
         _vm = StateObject(wrappedValue: AccountsViewModel(token: token))
@@ -27,7 +28,7 @@ struct AccountsView: View {
     private var content: some View {
         if vm.isLoading {
             ProgressView()
-        } else if vm.accounts.isEmpty {
+        } else if vm.accounts.isEmpty && vm.banks.isEmpty {
             ContentUnavailableView(
                 "No accounts",
                 systemImage: "creditcard",
@@ -35,17 +36,65 @@ struct AccountsView: View {
             )
         } else {
             List {
-                Section {
-                    ForEach(vm.accounts) { account in
-                        row(account)
+                if !vm.accounts.isEmpty {
+                    Section {
+                        ForEach(vm.accounts) { account in
+                            row(account)
+                        }
+                    } footer: {
+                        Text("Only included accounts count toward your safe-to-spend. Turn off savings or credit accounts you don't spend from.")
                     }
-                } footer: {
-                    Text("Only included accounts count toward your safe-to-spend. Turn off savings or credit accounts you don't spend from.")
+                }
+
+                if !vm.banks.isEmpty {
+                    Section {
+                        ForEach(vm.banks) { bank in
+                            bankRow(bank)
+                        }
+                    } header: {
+                        Text("Linked banks")
+                    } footer: {
+                        Text("Disconnecting a bank removes its accounts and transactions from Nudget. You can reconnect it later.")
+                    }
                 }
 
                 if let error = vm.error {
                     Text(error).foregroundStyle(Theme.risk(.danger)).font(.footnote)
                 }
+            }
+            .confirmationDialog(
+                "Disconnect \(bankToDisconnect?.displayName ?? "bank")?",
+                isPresented: Binding(
+                    get: { bankToDisconnect != nil },
+                    set: { if !$0 { bankToDisconnect = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: bankToDisconnect
+            ) { bank in
+                Button("Disconnect", role: .destructive) {
+                    Task { await vm.disconnect(bank) }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: { bank in
+                Text("This removes \(bank.displayName)'s accounts and transactions from Nudget.")
+            }
+        }
+    }
+
+    private func bankRow(_ bank: LinkedBank) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "building.columns.fill")
+                .foregroundStyle(Theme.brand)
+            Text(bank.displayName)
+            Spacer()
+            if vm.disconnectingIds.contains(bank.id) {
+                ProgressView()
+            } else {
+                Button("Disconnect", role: .destructive) {
+                    bankToDisconnect = bank
+                }
+                .font(.subheadline)
+                .buttonStyle(.borderless)
             }
         }
     }

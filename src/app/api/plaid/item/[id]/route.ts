@@ -11,6 +11,7 @@
 import type { NextRequest } from 'next/server';
 import { getUserFromRequest } from '@/lib/api/auth';
 import { plaidItemsRepo } from '@/lib/db/repositories';
+import { recomputeRunwayForUser } from '@/lib/services/runway';
 import { ok, unauthorized, badRequest, notFound } from '@/lib/api/responses';
 
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -24,6 +25,10 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   if (!deleted) {
     return notFound('No such Plaid item for this user');
   }
+
+  // Removing an item cascades its accounts/transactions — recompute so the
+  // cached runway snapshot reflects the reduced available cash.
+  await recomputeRunwayForUser(user.userId);
 
   return ok({ disconnected: true, itemId: id });
 }

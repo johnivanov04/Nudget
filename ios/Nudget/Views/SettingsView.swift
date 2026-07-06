@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @StateObject private var vm: SettingsViewModel
+    private let token: String
     private let onClose: () -> Void
     private let onAccountDeleted: () -> Void
 
@@ -9,6 +10,7 @@ struct SettingsView: View {
 
     init(token: String, onClose: @escaping () -> Void, onAccountDeleted: @escaping () -> Void) {
         _vm = StateObject(wrappedValue: SettingsViewModel(token: token))
+        self.token = token
         self.onClose = onClose
         self.onAccountDeleted = onAccountDeleted
     }
@@ -19,6 +21,7 @@ struct SettingsView: View {
                 if vm.isLoading {
                     ProgressView()
                 } else {
+                    paydaySection
                     notificationsSection
                     aboutSection
                     dangerSection
@@ -40,6 +43,16 @@ struct SettingsView: View {
     }
 
     // MARK: - Sections
+
+    private var paydaySection: some View {
+        Section("Pay schedule") {
+            NavigationLink {
+                EditPaydayView(token: token)
+            } label: {
+                Label("Payday", systemImage: "calendar")
+            }
+        }
+    }
 
     private var notificationsSection: some View {
         Section("Notifications") {

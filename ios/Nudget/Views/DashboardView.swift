@@ -99,7 +99,10 @@ struct DashboardView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView(
                 token: token,
-                onClose: { showSettings = false },
+                onClose: {
+                    showSettings = false
+                    Task { await model.load() }
+                },
                 onAccountDeleted: {
                     showSettings = false
                     session.signOut()
