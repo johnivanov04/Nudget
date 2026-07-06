@@ -46,6 +46,10 @@ targets:
     info:
       path: Nudget/Info.plist
       properties:
+        # Version 1.0, build N. Bump CFBundleVersion for every new TestFlight/App
+        # Store upload (must be unique per version). Keep the widget's in sync.
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "2"
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
@@ -78,6 +82,9 @@ targets:
     info:
       path: NudgetWidget/Info.plist
       properties:
+        # Must match the containing app's version + build (Apple upload rule).
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "2"
         CFBundleDisplayName: Nudget
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
