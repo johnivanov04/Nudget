@@ -33,6 +33,15 @@ struct AuthService {
         )
     }
 
+    /// Exchange a refresh token for a fresh access token (silent renewal).
+    func refresh(refreshToken: String) async throws -> AuthSession {
+        try await authRequest(
+            path: "auth/v1/token",
+            query: [URLQueryItem(name: "grant_type", value: "refresh_token")],
+            body: ["refresh_token": refreshToken]
+        )
+    }
+
     /// Sign up. If the project has email confirmation enabled, no session is
     /// returned — surface `.needsEmailConfirmation`.
     func signUp(email: String, password: String) async throws -> AuthSession {

@@ -250,69 +250,72 @@ struct NudgetAPI {
     }
 
     private func getAuthed(path: String, token: String) async throws -> Data {
-        let url = baseURL.appendingPathComponent(path)
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(for: request)
-        } catch {
-            throw NudgetAPIError.transport(error)
+        try await performAuthed(fallbackToken: token) { bearer in
+            var request = URLRequest(url: baseURL.appendingPathComponent(path))
+            request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+            return request
         }
-        guard let http = response as? HTTPURLResponse else { throw NudgetAPIError.badStatus(-1) }
-        if http.statusCode == 401 { throw NudgetAPIError.unauthorized }
-        guard (200..<300).contains(http.statusCode) else {
-            throw NudgetAPIError.badStatus(http.statusCode)
-        }
-        return data
     }
 
     @discardableResult
     private func deleteAuthed(path: String, token: String) async throws -> Data {
-        let url = baseURL.appendingPathComponent(path)
-        var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(for: request)
-        } catch {
-            throw NudgetAPIError.transport(error)
+        try await performAuthed(fallbackToken: token) { bearer in
+            var request = URLRequest(url: baseURL.appendingPathComponent(path))
+            request.httpMethod = "DELETE"
+            request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+            return request
         }
-        guard let http = response as? HTTPURLResponse else { throw NudgetAPIError.badStatus(-1) }
-        if http.statusCode == 401 { throw NudgetAPIError.unauthorized }
-        guard (200..<300).contains(http.statusCode) else {
-            throw NudgetAPIError.badStatus(http.statusCode)
-        }
-        return data
     }
 
     @discardableResult
     private func postAuthed(path: String, token: String, body: [String: Any]) async throws -> Data {
-        let url = baseURL.appendingPathComponent(path)
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(for: request)
-        } catch {
-            throw NudgetAPIError.transport(error)
+        let httpBody = try JSONSerialization.data(withJSONObject: body)
+        return try await performAuthed(fallbackToken: token) { bearer in
+            var request = URLRequest(url: baseURL.appendingPathComponent(path))
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = httpBody
+            return request
         }
+    }
 
-        guard let http = response as? HTTPURLResponse else { throw NudgetAPIError.badStatus(-1) }
-        if http.statusCode == 401 { throw NudgetAPIError.unauthorized }
-        guard (200..<300).contains(http.statusCode) else {
-            throw NudgetAPIError.badStatus(http.statusCode)
+    /// Runs an authed request, injecting the freshest token. On a 401 it asks the
+    /// token provider to silently refresh, then retries once with the new token —
+    /// so an expired access token renews transparently instead of logging the
+    /// user out. Only a failed refresh surfaces `.unauthorized`.
+    private func performAuthed(
+        fallbackToken: String,
+        build: (String) -> URLRequest
+    ) async throws -> Data {
+        var bearer = await AuthTokenProvider.shared.accessToken ?? fallbackToken
+        var didRetry = false
+
+        while true {
+            let request = build(bearer)
+            let data: Data
+            let response: URLResponse
+            do {
+                (data, response) = try await session.data(for: request)
+            } catch {
+                throw NudgetAPIError.transport(error)
+            }
+            guard let http = response as? HTTPURLResponse else { throw NudgetAPIError.badStatus(-1) }
+
+            if http.statusCode == 401 {
+                if !didRetry,
+                   await AuthTokenProvider.shared.refreshIfPossible(),
+                   let refreshed = await AuthTokenProvider.shared.accessToken {
+                    didRetry = true
+                    bearer = refreshed
+                    continue
+                }
+                throw NudgetAPIError.unauthorized
+            }
+            guard (200..<300).contains(http.statusCode) else {
+                throw NudgetAPIError.badStatus(http.statusCode)
+            }
+            return data
         }
-        return data
     }
 }

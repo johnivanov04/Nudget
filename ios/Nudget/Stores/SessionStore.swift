@@ -14,11 +14,22 @@ final class SessionStore: ObservableObject {
     @Published private(set) var state: State = .loading
 
     private let auth: AuthService
-    private static let tokenAccount = "access_token"
+    private static let tokenAccount = AuthTokenProvider.accessAccount
+    private static let refreshAccount = AuthTokenProvider.refreshAccount
     private static let emailAccount = "user_email"
 
     init(auth: AuthService = AuthService()) {
         self.auth = auth
+
+        // Silent-refresh wiring: keep the published token current on refresh, and
+        // sign out only when the refresh token itself is dead.
+        AuthTokenProvider.shared.onRefresh = { [weak self] session in
+            guard let self, case let .signedIn(_, email) = self.state else { return }
+            self.state = .signedIn(token: session.accessToken, email: email)
+        }
+        AuthTokenProvider.shared.onInvalidated = { [weak self] in
+            self?.signOut()
+        }
     }
 
     /// Restore a stored session on launch (optimistic — an expired token is
@@ -44,6 +55,7 @@ final class SessionStore: ObservableObject {
 
     func signOut() {
         Keychain.delete(Self.tokenAccount)
+        Keychain.delete(Self.refreshAccount)
         Keychain.delete(Self.emailAccount)
         SharedStore.clear()
         WidgetCenter.shared.reloadAllTimelines()
@@ -54,6 +66,9 @@ final class SessionStore: ObservableObject {
     private func persist(_ session: AuthSession, fallbackEmail: String) {
         let email = session.user?.email ?? fallbackEmail
         Keychain.set(session.accessToken, for: Self.tokenAccount)
+        if let refreshToken = session.refreshToken {
+            Keychain.set(refreshToken, for: Self.refreshAccount)
+        }
         Keychain.set(email, for: Self.emailAccount)
         state = .signedIn(token: session.accessToken, email: email)
         PushManager.shared.onSignedIn(token: session.accessToken)
