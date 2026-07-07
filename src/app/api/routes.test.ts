@@ -20,6 +20,10 @@ vi.mock('@/lib/db/repositories', () => ({
   plaidItemsRepo: { removeOwned: vi.fn() },
 }));
 vi.mock('@/lib/supabase/admin', () => ({ getSupabaseAdmin: vi.fn() }));
+vi.mock('@/lib/services/runway', () => ({
+  computeRunwayForUser: vi.fn(),
+  recomputeRunwayForUser: vi.fn(),
+}));
 
 import { getUserFromRequest } from '@/lib/api/auth';
 import {

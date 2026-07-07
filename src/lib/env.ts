@@ -50,6 +50,9 @@ export const envSchema = z.object({
   APNS_PRIVATE_KEY: z.string().optional(), // the .p8 PEM contents (literal or \n-escaped)
   APNS_TOPIC: z.string().optional(), // app bundle id, e.g. app.nudget.ios
   APNS_ENV: z.enum(['sandbox', 'production']).optional(), // which APNs host to hit
+
+  // Optional: Sentry error reporting (server). Unset = disabled.
+  SENTRY_DSN: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

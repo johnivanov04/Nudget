@@ -25,6 +25,7 @@
     "demo:runway": "NUDGET_DEMO=1 vitest run src/scripts/demoRunway.test.ts --reporter=basic"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.64.0",
     "@supabase/supabase-js": "2.108.2",
     "next": "15.5.19",
     "plaid": "^42.2.0",

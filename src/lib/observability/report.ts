@@ -1,11 +1,12 @@
 /**
  * Error reporting with financial-data scrubbing.
  *
- * A single choke point for server-side error reporting. Today it scrubs + logs;
- * a provider (Sentry) can be wired behind `sendToProvider` later without touching
- * any call site. The scrubber guarantees we never ship raw financial data (tokens,
- * balances, amounts, merchant names, account masks) into an error report.
+ * A single choke point for server-side error reporting. It scrubs + logs and
+ * forwards to Sentry (when SENTRY_DSN is set). The scrubber guarantees we never
+ * ship raw financial data (tokens, balances, amounts, merchant names, account
+ * masks) into an error report.
  */
+import * as Sentry from '@sentry/nextjs';
 
 /** Context keys whose VALUES must be redacted before reporting. */
 const SENSITIVE_KEYS = [
@@ -47,9 +48,14 @@ export interface ReportContext {
   [key: string]: unknown;
 }
 
-/** No-op provider sink for now. TODO(prod): forward to Sentry with scrubbing on. */
-function sendToProvider(_message: string, _context: Record<string, unknown>): void {
-  // intentionally empty until a provider DSN is configured
+/**
+ * Forward to Sentry (only if a DSN is configured — otherwise a no-op). The
+ * `extra` context has already been scrubbed of financial data by the caller.
+ */
+function sendToProvider(error: unknown, context: Record<string, unknown>): void {
+  if (!process.env.SENTRY_DSN) return;
+  const tags = typeof context.scope === 'string' ? { scope: context.scope } : undefined;
+  Sentry.captureException(error, { extra: context, tags });
 }
 
 /**
@@ -64,7 +70,7 @@ export function reportError(error: unknown, context: ReportContext = {}): void {
       // eslint-disable-next-line no-console
       console.error('[reportError]', message, safeContext);
     }
-    sendToProvider(message, safeContext);
+    sendToProvider(error, safeContext);
   } catch {
     // swallow — observability must never throw
   }
