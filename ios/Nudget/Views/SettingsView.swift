@@ -113,6 +113,9 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section("About") {
+            Link(destination: URL(string: "https://nudget-taupe.vercel.app/privacy")!) {
+                Label("Privacy Policy", systemImage: "hand.raised")
+            }
             LabeledContent("Privacy", value: "Nudget never stores your bank login")
             Text("Estimates for awareness, not financial advice.")
                 .font(.footnote)
