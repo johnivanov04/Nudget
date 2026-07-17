@@ -10,14 +10,17 @@
 import type { NextRequest } from 'next/server';
 import { getUserFromRequest } from '@/lib/api/auth';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { removeAllPlaidItemsUpstream } from '@/lib/plaid/removeItem';
 import { ok, unauthorized, serverError } from '@/lib/api/responses';
 
 export async function DELETE(req: NextRequest) {
   const user = await getUserFromRequest(req);
   if (!user) return unauthorized();
 
-  // TODO(phase-3): call Plaid `/item/remove` for each linked item before delete
-  // so upstream access tokens are invalidated, not just removed locally.
+  // Release the user's Plaid Items upstream (best-effort) so we stop being billed
+  // for them, then delete the auth user — which cascades all local data.
+  await removeAllPlaidItemsUpstream(user.userId);
+
   const { error } = await getSupabaseAdmin().auth.admin.deleteUser(user.userId);
   if (error) {
     return serverError('Failed to delete account');

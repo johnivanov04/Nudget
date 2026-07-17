@@ -17,12 +17,16 @@ vi.mock('@/lib/db/repositories', () => ({
   profilesRepo: { getById: vi.fn() },
   paycheckSchedulesRepo: { upsert: vi.fn() },
   feedbackEventsRepo: { insert: vi.fn() },
-  plaidItemsRepo: { removeOwned: vi.fn() },
+  plaidItemsRepo: { removeOwned: vi.fn(), getOwned: vi.fn(), remove: vi.fn() },
 }));
 vi.mock('@/lib/supabase/admin', () => ({ getSupabaseAdmin: vi.fn() }));
 vi.mock('@/lib/services/runway', () => ({
   computeRunwayForUser: vi.fn(),
   recomputeRunwayForUser: vi.fn(),
+}));
+vi.mock('@/lib/plaid/removeItem', () => ({
+  removePlaidItemUpstream: vi.fn(),
+  removeAllPlaidItemsUpstream: vi.fn(),
 }));
 
 import { getUserFromRequest } from '@/lib/api/auth';
@@ -240,15 +244,17 @@ describe('DELETE /api/plaid/item/:id', () => {
     vi.mocked(getUserFromRequest).mockResolvedValue(null);
     const res = await disconnectItem(bareReq('http://t/api/plaid/item/i1', 'DELETE'), ctx('i1'));
     expect(res.status).toBe(401);
-    expect(plaidItemsRepo.removeOwned).not.toHaveBeenCalled();
+    expect(plaidItemsRepo.getOwned).not.toHaveBeenCalled();
   });
 
   it('disconnects an item owned by the caller', async () => {
     vi.mocked(getUserFromRequest).mockResolvedValue(authed);
-    vi.mocked(plaidItemsRepo.removeOwned).mockResolvedValue(true);
+    vi.mocked(plaidItemsRepo.getOwned).mockResolvedValue({ id: 'i1' } as never);
+    vi.mocked(plaidItemsRepo.remove).mockResolvedValue(undefined);
     const res = await disconnectItem(bareReq('http://t/api/plaid/item/i1', 'DELETE'), ctx('i1'));
     expect(res.status).toBe(200);
-    expect(plaidItemsRepo.removeOwned).toHaveBeenCalledWith('user-A', 'i1');
+    expect(plaidItemsRepo.getOwned).toHaveBeenCalledWith('user-A', 'i1');
+    expect(plaidItemsRepo.remove).toHaveBeenCalledWith('i1');
     const body = await res.json();
     expect(body).toEqual({ disconnected: true, itemId: 'i1' });
     // Token safety at the API surface: the response carries no token field.
@@ -257,12 +263,13 @@ describe('DELETE /api/plaid/item/:id', () => {
 
   it('404 when the item is not owned by the caller', async () => {
     vi.mocked(getUserFromRequest).mockResolvedValue(authed);
-    vi.mocked(plaidItemsRepo.removeOwned).mockResolvedValue(false);
+    vi.mocked(plaidItemsRepo.getOwned).mockResolvedValue(null);
     const res = await disconnectItem(
       bareReq('http://t/api/plaid/item/other', 'DELETE'),
       ctx('other'),
     );
     expect(res.status).toBe(404);
+    expect(plaidItemsRepo.remove).not.toHaveBeenCalled();
   });
 });
 
