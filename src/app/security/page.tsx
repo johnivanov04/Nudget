@@ -139,9 +139,31 @@ export default function SecurityPage() {
 
       <H2>11. Vulnerability management</H2>
       <p>
-        Dependency vulnerabilities are monitored and remediated, and security considerations are part
-        of code review for changes that touch data handling or authentication.
+        Nudget runs on managed, serverless infrastructure (Vercel, Supabase); the underlying operating
+        systems and server instances are maintained and patched by those providers. At the application
+        level:
       </p>
+      <ul>
+        <li>
+          <strong>Dependency scanning:</strong> third-party dependencies are continuously monitored for
+          known vulnerabilities using automated tooling (<code>npm audit</code> and GitHub Dependabot
+          alerts).
+        </li>
+        <li>
+          <strong>Patching SLA:</strong> identified vulnerabilities are remediated on a risk-based
+          timeline — critical and high-severity issues within 7 days of a fix becoming available, and
+          lower-severity issues within 30 days.
+        </li>
+        <li>
+          <strong>End-of-life software:</strong> runtimes and key dependencies are kept on actively
+          supported versions (for example, current Node.js LTS and framework releases); deprecated or
+          end-of-life components are monitored and replaced promptly.
+        </li>
+        <li>
+          Security is also considered during code review for changes that touch data handling or
+          authentication.
+        </li>
+      </ul>
 
       <H2>12. Business continuity &amp; backups</H2>
       <p>
