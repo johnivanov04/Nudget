@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const user = await getUserFromRequest(req);
   if (!user) return unauthorized();
 
-  const webhookUrl = getEnv().PLAID_WEBHOOK_URL;
+  const { PLAID_WEBHOOK_URL: webhookUrl, PLAID_REDIRECT_URI: redirectUri } = getEnv();
   try {
     const { data } = await getPlaidClient().linkTokenCreate({
       user: { client_user_id: user.userId },
@@ -24,6 +24,9 @@ export async function POST(req: NextRequest) {
       country_codes: [CountryCode.Us],
       language: 'en',
       ...(webhookUrl ? { webhook: webhookUrl } : {}),
+      // Required for OAuth banks (Wells Fargo, Chase, …) on iOS: after the bank's
+      // OAuth, Plaid redirects here (a universal link) to hand control back.
+      ...(redirectUri ? { redirect_uri: redirectUri } : {}),
     });
     return ok({ linkToken: data.link_token, expiration: data.expiration });
   } catch {

@@ -28,6 +28,9 @@ export const envSchema = z.object({
   }),
   // Optional: public HTTPS URL Plaid will POST webhooks to (set on link tokens).
   PLAID_WEBHOOK_URL: z.string().url().optional(),
+  // Optional: universal-link redirect URI for OAuth banks (must be registered in
+  // the Plaid dashboard + backed by an Associated Domains / AASA setup on iOS).
+  PLAID_REDIRECT_URI: z.string().url().optional(),
 
   // Optional: comma-separated user ids allowed to read admin metrics.
   ADMIN_USER_IDS: z.string().optional(),

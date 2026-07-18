@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "VYC3499K46.app.nudget.ios",
+        "paths": ["/plaid-oauth"]
+      }
+    ]
+  }
+}
