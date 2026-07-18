@@ -19,12 +19,23 @@ struct PlaidLinkView: UIViewControllerRepresentable {
             onSuccess(success.publicToken)
         }
         configuration.onExit = { exit in
-            onExit(exit.error?.localizedDescription)
+            guard let error = exit.error else {
+                onExit(nil) // user simply cancelled
+                return
+            }
+            let status = exit.metadata.status.map { String(describing: $0) } ?? "—"
+            let detail = "\(String(describing: error.errorCode)) · \(error.errorMessage)"
+            print("[PlaidLink] EXIT ERROR:", detail,
+                  "| display:", error.displayMessage ?? "-",
+                  "| status:", status)
+            onExit(detail)
         }
 
         switch Plaid.create(configuration) {
         case .failure(let error):
-            DispatchQueue.main.async { onExit(error.localizedDescription) }
+            let detail = "create failed: \(String(describing: error))"
+            print("[PlaidLink]", detail)
+            DispatchQueue.main.async { onExit(detail) }
         case .success(let handler):
             context.coordinator.handler = handler
             DispatchQueue.main.async {
