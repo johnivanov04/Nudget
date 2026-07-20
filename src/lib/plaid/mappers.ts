@@ -49,16 +49,21 @@ export function plaidAccountToRow(
   plaidItemRowId: string,
   account: PlaidAccount,
 ): AccountInsert {
+  const type = normalizeAccountType(account.type);
   return {
     user_id: userId,
     plaid_item_id: plaidItemRowId,
     plaid_account_id: account.account_id,
     name: account.name ?? account.official_name ?? null,
-    type: normalizeAccountType(account.type),
+    type,
     subtype: account.subtype ?? null,
     mask: account.mask ?? null,
     available_balance: account.balances?.available ?? null,
     current_balance: account.balances?.current ?? null,
+    // Only spendable cash (checking/savings) counts toward the runway by default;
+    // credit/loan/investment balances aren't cash, so start excluded. The user
+    // can still toggle any account in the Accounts screen.
+    included_in_runway: type === 'depository',
   };
 }
 

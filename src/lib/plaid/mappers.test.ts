@@ -38,7 +38,21 @@ describe('plaid mappers', () => {
         mask: '0000',
         available_balance: 500.25,
         current_balance: 600,
+        included_in_runway: true, // depository = spendable cash
       });
+    });
+
+    it('excludes non-cash accounts (credit/loan/investment) from the runway by default', () => {
+      const credit: PlaidAccount = {
+        account_id: 'c1',
+        name: 'Rewards Card',
+        official_name: null,
+        mask: '1111',
+        type: 'credit',
+        subtype: 'credit card',
+        balances: { available: 4000, current: 250 },
+      };
+      expect(plaidAccountToRow('u1', 'item1', credit).included_in_runway).toBe(false);
     });
   });
 

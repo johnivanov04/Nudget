@@ -7,6 +7,9 @@ final class AccountsViewModel: ObservableObject {
     @Published private(set) var isLoading = true
     @Published private(set) var togglingIds: Set<String> = []
     @Published private(set) var disconnectingIds: Set<String> = []
+    @Published private(set) var isLinking = false
+    /// Non-nil while Plaid Link should be presented (adding another bank).
+    @Published var linkToken: String?
     @Published var error: String?
     /// True once the user has changed something, so the caller can refresh.
     @Published private(set) var didChange = false
@@ -30,6 +33,36 @@ final class AccountsViewModel: ObservableObject {
             self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
         isLoading = false
+    }
+
+    /// Start linking another institution: fetch a link token to present Plaid Link.
+    func beginAddBank() async {
+        isLinking = true
+        error = nil
+        do {
+            linkToken = try await api.createLinkToken(token: token)
+        } catch {
+            self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+        isLinking = false
+    }
+
+    /// Plaid returned a public token — exchange + sync the new bank, then refresh.
+    func linkSucceeded(publicToken: String) async {
+        linkToken = nil
+        do {
+            try await api.exchangePublicToken(token: token, publicToken: publicToken)
+            try await api.syncTransactions(token: token)
+            didChange = true
+            await load()
+        } catch {
+            self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func linkExited(error message: String?) {
+        linkToken = nil
+        if let message { error = message }
     }
 
     /// Disconnect a linked bank (removes its accounts + transactions server-side,

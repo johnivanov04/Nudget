@@ -22,6 +22,23 @@ struct AccountsView: View {
                 }
         }
         .task { await vm.load() }
+        .fullScreenCover(
+            isPresented: Binding(
+                get: { vm.linkToken != nil },
+                set: { if !$0 { vm.linkToken = nil } }
+            )
+        ) {
+            if let linkToken = vm.linkToken {
+                PlaidLinkView(
+                    linkToken: linkToken,
+                    onSuccess: { publicToken in
+                        Task { await vm.linkSucceeded(publicToken: publicToken) }
+                    },
+                    onExit: { message in vm.linkExited(error: message) }
+                )
+                .ignoresSafeArea()
+            }
+        }
     }
 
     @ViewBuilder
@@ -29,13 +46,20 @@ struct AccountsView: View {
         if vm.isLoading {
             ProgressView()
         } else if vm.accounts.isEmpty && vm.banks.isEmpty {
-            ContentUnavailableView(
-                "No accounts",
-                systemImage: "creditcard",
-                description: Text(vm.error ?? "Connect a bank to see your accounts here.")
-            )
+            ContentUnavailableView {
+                Label("No accounts", systemImage: "creditcard")
+            } description: {
+                Text(vm.error ?? "Connect a bank to see your accounts here.")
+            } actions: {
+                connectBankButton("Connect a bank")
+                    .buttonStyle(.borderedProminent)
+            }
         } else {
             List {
+                Section {
+                    connectBankButton("Connect another bank")
+                }
+
                 if !vm.accounts.isEmpty {
                     Section {
                         ForEach(vm.accounts) { account in
@@ -79,6 +103,19 @@ struct AccountsView: View {
                 Text("This removes \(bank.displayName)'s accounts and transactions from Nudget.")
             }
         }
+    }
+
+    private func connectBankButton(_ title: String) -> some View {
+        Button {
+            Task { await vm.beginAddBank() }
+        } label: {
+            if vm.isLinking {
+                ProgressView().frame(maxWidth: .infinity)
+            } else {
+                Label(title, systemImage: "plus.circle.fill")
+            }
+        }
+        .disabled(vm.isLinking)
     }
 
     private func bankRow(_ bank: LinkedBank) -> some View {
