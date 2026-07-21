@@ -212,6 +212,17 @@ struct NudgetAPI {
         }
     }
 
+    /// `POST /api/plaid/item/:id/link-token` — an update-mode Link token to
+    /// reconnect an existing bank whose connection needs re-authentication.
+    func reconnectLinkToken(token: String, itemId: String) async throws -> String {
+        let data = try await postAuthed(path: "api/plaid/item/\(itemId)/link-token", token: token, body: [:])
+        do {
+            return try JSONDecoder().decode(LinkTokenResponse.self, from: data).linkToken
+        } catch {
+            throw NudgetAPIError.decoding(error)
+        }
+    }
+
     /// `POST /api/plaid/exchange-public-token` — store the linked item server-side.
     func exchangePublicToken(token: String, publicToken: String) async throws {
         _ = try await postAuthed(

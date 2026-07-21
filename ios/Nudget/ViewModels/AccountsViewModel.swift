@@ -8,11 +8,17 @@ final class AccountsViewModel: ObservableObject {
     @Published private(set) var togglingIds: Set<String> = []
     @Published private(set) var disconnectingIds: Set<String> = []
     @Published private(set) var isLinking = false
-    /// Non-nil while Plaid Link should be presented (adding another bank).
+    /// The item id currently being reconnected (for a per-row spinner).
+    @Published private(set) var reconnectingId: String?
+    /// Non-nil while Plaid Link should be presented (adding OR reconnecting a bank).
     @Published var linkToken: String?
     @Published var error: String?
     /// True once the user has changed something, so the caller can refresh.
     @Published private(set) var didChange = false
+
+    /// Whether the active Link session is adding a new bank or repairing one.
+    private enum LinkMode { case add, reconnect }
+    private var linkMode: LinkMode = .add
 
     private let token: String
     private let api: NudgetAPI
@@ -37,6 +43,7 @@ final class AccountsViewModel: ObservableObject {
 
     /// Start linking another institution: fetch a link token to present Plaid Link.
     func beginAddBank() async {
+        linkMode = .add
         isLinking = true
         error = nil
         do {
@@ -47,11 +54,28 @@ final class AccountsViewModel: ObservableObject {
         isLinking = false
     }
 
-    /// Plaid returned a public token — exchange + sync the new bank, then refresh.
+    /// Repair a bank whose connection needs re-auth via Plaid Link update mode.
+    func beginReconnect(_ bank: LinkedBank) async {
+        linkMode = .reconnect
+        reconnectingId = bank.id
+        error = nil
+        do {
+            linkToken = try await api.reconnectLinkToken(token: token, itemId: bank.id)
+        } catch {
+            self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+        reconnectingId = nil
+    }
+
+    /// Plaid Link finished. For a new bank we exchange the public token; for a
+    /// reconnect (update mode) the access token is unchanged, so we just re-sync.
+    /// Either way a successful sync clears the bank's status server-side.
     func linkSucceeded(publicToken: String) async {
         linkToken = nil
         do {
-            try await api.exchangePublicToken(token: token, publicToken: publicToken)
+            if linkMode == .add {
+                try await api.exchangePublicToken(token: token, publicToken: publicToken)
+            }
             try await api.syncTransactions(token: token)
             didChange = true
             await load()
@@ -62,6 +86,7 @@ final class AccountsViewModel: ObservableObject {
 
     func linkExited(error message: String?) {
         linkToken = nil
+        reconnectingId = nil
         if let message { error = message }
     }
 

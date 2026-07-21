@@ -85,7 +85,17 @@ export async function syncTransactionsForItem(item: PlaidItemRow): Promise<SyncS
   const accounts = await accountsRepo.listByUser(item.user_id);
   const accountIdByPlaidId = new Map(accounts.map((a) => [a.plaid_account_id, a.id]));
 
-  const collected = await collectTransactionSync(getPlaidClient(), accessToken, item.sync_cursor);
+  let collected: CollectedSync;
+  try {
+    collected = await collectTransactionSync(getPlaidClient(), accessToken, item.sync_cursor);
+  } catch (err) {
+    // The connection needs the user to re-authenticate — flag it so the app can
+    // prompt a reconnect (Link update mode) instead of silently serving stale data.
+    if (isItemLoginRequired(err)) {
+      await plaidItemsRepo.setStatus(item.id, 'login_required');
+    }
+    throw err;
+  }
 
   let skipped = 0;
   const rows = [];
@@ -100,6 +110,11 @@ export async function syncTransactionsForItem(item: PlaidItemRow): Promise<SyncS
   await transactionsRepo.deleteByPlaidIds(collected.removed);
   await plaidItemsRepo.updateSyncState(item.id, collected.nextCursor);
 
+  // A successful sync means any prior re-auth/error state is resolved.
+  if (item.status !== 'active') {
+    await plaidItemsRepo.setStatus(item.id, 'active');
+  }
+
   return {
     itemId: item.id,
     added: collected.added.length,
@@ -108,4 +123,11 @@ export async function syncTransactionsForItem(item: PlaidItemRow): Promise<SyncS
     skipped,
     pages: collected.pages,
   };
+}
+
+/** True for Plaid's ITEM_LOGIN_REQUIRED — the connection needs re-authentication. */
+function isItemLoginRequired(err: unknown): boolean {
+  const code = (err as { response?: { data?: { error_code?: string } } })?.response?.data
+    ?.error_code;
+  return code === 'ITEM_LOGIN_REQUIRED';
 }

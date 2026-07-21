@@ -122,6 +122,10 @@ struct DashboardView: View {
     private func loadedState(_ s: RunwaySnapshotView) -> some View {
         ScrollView {
             VStack(spacing: 16) {
+                if !model.reconnectBanks.isEmpty {
+                    reconnectBanner
+                }
+
                 heroCard(s)
 
                 if let daily = s.dailySafeSpend {
@@ -158,6 +162,31 @@ struct DashboardView: View {
     }
 
     // MARK: - Dashboard sections
+
+    private var reconnectBanner: some View {
+        Button {
+            showAccounts = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Theme.risk(.caution))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("A bank needs reconnecting")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Text("Your numbers may be out of date until you reconnect.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .card(padding: 16)
+        }
+        .buttonStyle(.plain)
+    }
 
     private func dailyAllowanceCard(_ daily: Double) -> some View {
         HStack(spacing: 14) {

@@ -14,6 +14,8 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var state: State = .loading
     /// Confirmed bills due on or before payday — the dashboard "upcoming" peek.
     @Published private(set) var upcomingBills: [Bill] = []
+    /// Linked banks whose connection needs re-auth (drives the reconnect banner).
+    @Published private(set) var reconnectBanks: [LinkedBank] = []
 
     private let api: NudgetAPI
     private let token: String
@@ -31,8 +33,12 @@ final class DashboardViewModel: ObservableObject {
                 state = .loaded(snapshot)
                 publishToWidget(snapshot)
                 await loadUpcomingBills(before: snapshot.paydayDate)
+                // Best-effort: surface banks that need re-auth.
+                reconnectBanks = ((try? await api.linkedBanks(token: token)) ?? [])
+                    .filter { $0.needsReconnect }
             } else {
                 upcomingBills = []
+                reconnectBanks = []
                 state = .needsSetup
             }
         } catch NudgetAPIError.unauthorized {

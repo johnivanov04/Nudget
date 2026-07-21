@@ -122,16 +122,34 @@ struct AccountsView: View {
         HStack(spacing: 12) {
             Image(systemName: "building.columns.fill")
                 .foregroundStyle(Theme.brand)
-            Text(bank.displayName)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(bank.displayName)
+                if bank.needsReconnect {
+                    Label("Needs reconnect", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(Theme.risk(.caution))
+                }
+            }
             Spacer()
-            if vm.disconnectingIds.contains(bank.id) {
+            if vm.reconnectingId == bank.id || vm.disconnectingIds.contains(bank.id) {
                 ProgressView()
+            } else if bank.needsReconnect {
+                Button("Reconnect") {
+                    Task { await vm.beginReconnect(bank) }
+                }
+                .font(.subheadline.weight(.semibold))
+                .buttonStyle(.borderless)
             } else {
                 Button("Disconnect", role: .destructive) {
                     bankToDisconnect = bank
                 }
                 .font(.subheadline)
                 .buttonStyle(.borderless)
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button("Disconnect", role: .destructive) {
+                bankToDisconnect = bank
             }
         }
     }

@@ -58,7 +58,13 @@ export async function POST(req: NextRequest) {
   try {
     const results = [];
     for (const item of items) {
-      results.push(await syncTransactionsForItem(item));
+      try {
+        results.push(await syncTransactionsForItem(item));
+      } catch (err) {
+        // One bank failing (e.g. it needs re-auth — status is set to
+        // login_required inside the sync) must not abort the others.
+        reportError(err, { scope: 'plaid.sync.item', userId: user.userId, itemId: item.id });
+      }
     }
 
     // After new transactions land, re-detect recurring bills and recompute the

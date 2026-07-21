@@ -8,6 +8,9 @@ struct LinkedBank: Decodable, Identifiable, Equatable {
     let status: String
 
     var displayName: String { institutionName ?? "Linked bank" }
+
+    /// The connection needs the user to re-authenticate (Plaid `login_required`).
+    var needsReconnect: Bool { status == "login_required" }
 }
 
 struct LinkedBanksResponse: Decodable {

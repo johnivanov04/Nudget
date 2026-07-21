@@ -8,6 +8,7 @@ const m = vi.hoisted(() => ({
   upsertMany: vi.fn(),
   deleteByPlaidIds: vi.fn(),
   updateSyncState: vi.fn(),
+  setStatus: vi.fn(),
 }));
 
 vi.mock('@/lib/plaid/client', () => ({
@@ -17,6 +18,7 @@ vi.mock('@/lib/db/repositories', () => ({
   plaidItemsRepo: {
     getDecryptedAccessToken: m.getDecryptedAccessToken,
     updateSyncState: m.updateSyncState,
+    setStatus: m.setStatus,
   },
   accountsRepo: { listByUser: m.listAccounts },
   transactionsRepo: { upsertMany: m.upsertMany, deleteByPlaidIds: m.deleteByPlaidIds },
@@ -39,6 +41,7 @@ const item = {
   id: 'item1',
   user_id: 'u1',
   sync_cursor: 'old-cursor',
+  status: 'active',
 } as PlaidItemRow;
 
 beforeEach(() => {
@@ -129,5 +132,21 @@ describe('syncTransactionsForItem', () => {
 
     await expect(syncTransactionsForItem(item)).rejects.toThrow('db down');
     expect(m.updateSyncState).not.toHaveBeenCalled();
+  });
+
+  it('flags login_required when the connection needs re-auth', async () => {
+    m.transactionsSync.mockRejectedValue({ response: { data: { error_code: 'ITEM_LOGIN_REQUIRED' } } });
+
+    await expect(syncTransactionsForItem(item)).rejects.toBeTruthy();
+    expect(m.setStatus).toHaveBeenCalledWith('item1', 'login_required');
+    expect(m.updateSyncState).not.toHaveBeenCalled();
+  });
+
+  it('clears a prior error state back to active on a successful sync', async () => {
+    const broken = { ...item, status: 'login_required' } as PlaidItemRow;
+    m.transactionsSync.mockResolvedValue(page({ next_cursor: 'c2' }));
+
+    await syncTransactionsForItem(broken);
+    expect(m.setStatus).toHaveBeenCalledWith('item1', 'active');
   });
 });
