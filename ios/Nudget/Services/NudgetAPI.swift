@@ -339,12 +339,18 @@ struct NudgetAPI {
             guard let http = response as? HTTPURLResponse else { throw NudgetAPIError.badStatus(-1) }
 
             if http.statusCode == 401 {
-                if !didRetry,
-                   await AuthTokenProvider.shared.refreshIfPossible(),
-                   let refreshed = await AuthTokenProvider.shared.accessToken {
-                    didRetry = true
-                    bearer = refreshed
-                    continue
+                if !didRetry {
+                    let result = await AuthTokenProvider.shared.refresh()
+                    if result == .refreshed, let refreshed = await AuthTokenProvider.shared.accessToken {
+                        didRetry = true
+                        bearer = refreshed
+                        continue
+                    }
+                    // Transient refresh failure (network/5xx): fail this request but
+                    // keep the session — don't sign the user out over a blip.
+                    if result == .transient {
+                        throw NudgetAPIError.transport(URLError(.notConnectedToInternet))
+                    }
                 }
                 throw NudgetAPIError.unauthorized
             }

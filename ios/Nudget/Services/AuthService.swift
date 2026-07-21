@@ -2,7 +2,7 @@ import Foundation
 
 enum AuthError: LocalizedError {
     case invalidURL
-    case server(String)
+    case server(status: Int, message: String)
     case needsEmailConfirmation
     case transport(Error)
     case decoding
@@ -10,11 +10,21 @@ enum AuthError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidURL: return "Could not build the request."
-        case .server(let message): return message
+        case .server(_, let message): return message
         case .needsEmailConfirmation: return "Check your email to confirm your account, then sign in."
         case .transport(let error): return error.localizedDescription
         case .decoding: return "Unexpected response from the server."
         }
+    }
+
+    /// A definitive rejection (bad credentials / invalid refresh token) vs a
+    /// transient failure (network, server 5xx). Only definitive failures should
+    /// end the session — a blip must not sign the user out.
+    static func isDefinitiveAuthFailure(_ error: Error) -> Bool {
+        if case let AuthError.server(status, _) = error {
+            return (400..<500).contains(status)
+        }
+        return false // transport / decoding → transient, keep the session
     }
 }
 
@@ -86,9 +96,12 @@ struct AuthService {
         guard let http = response as? HTTPURLResponse else { throw AuthError.decoding }
         guard (200..<300).contains(http.statusCode) else {
             if let body = try? JSONDecoder().decode(AuthErrorBody.self, from: data) {
-                throw AuthError.server(body.bestMessage)
+                throw AuthError.server(status: http.statusCode, message: body.bestMessage)
             }
-            throw AuthError.server("Sign-in failed (status \(http.statusCode)).")
+            throw AuthError.server(
+                status: http.statusCode,
+                message: "Request failed (status \(http.statusCode)).",
+            )
         }
 
         guard let session = try? JSONDecoder().decode(AuthSession.self, from: data) else {
