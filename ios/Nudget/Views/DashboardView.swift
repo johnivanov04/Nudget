@@ -129,7 +129,7 @@ struct DashboardView: View {
                 heroCard(s)
 
                 if let daily = s.dailySafeSpend {
-                    dailyAllowanceCard(daily)
+                    dailyPaceCard(spent: s.spentToday, daily: daily)
                 }
 
                 HStack(spacing: 12) {
@@ -188,21 +188,45 @@ struct DashboardView: View {
         .buttonStyle(.plain)
     }
 
-    private func dailyAllowanceCard(_ daily: Double) -> some View {
-        HStack(spacing: 14) {
-            iconChip("wallet.pass.fill")
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Daily allowance")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("\(masked(daily)) a day")
-                    .font(.title3.weight(.bold))
-                    .contentTransition(.numericText())
-                Text("to stay safe until payday")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+    /// Today's spending pace against the daily allowance — are you over or under?
+    private func dailyPaceCard(spent: Double, daily: Double) -> some View {
+        let over = spent > daily
+        let remaining = daily - spent
+        // Bar fills toward the allowance; overspending shows a full bar.
+        let fraction = daily > 0 ? min(spent / daily, 1) : (spent > 0 ? 1 : 0)
+        let color: Color = over ? Theme.risk(.danger)
+            : (fraction >= 0.8 ? Theme.risk(.caution) : Theme.risk(.safe))
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 14) {
+                iconChip("gauge.with.dots.needle.67percent")
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Today's pace")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("\(masked(spent)) of \(masked(daily))")
+                        .font(.title3.weight(.bold))
+                        .contentTransition(.numericText())
+                }
+                Spacer()
             }
-            Spacer()
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color(uiColor: .tertiarySystemFill))
+                    Capsule().fill(color).frame(width: max(6, geo.size.width * fraction))
+                }
+            }
+            .frame(height: 10)
+
+            HStack(spacing: 6) {
+                Image(systemName: over ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                Text(over
+                     ? "\(masked(-remaining)) over your daily pace"
+                     : "\(masked(remaining)) left to stay on pace today")
+            }
+            .font(.caption)
+            .foregroundStyle(color)
         }
         .card(padding: 16)
     }
