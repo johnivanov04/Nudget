@@ -26,5 +26,6 @@ export async function GET(req: NextRequest) {
     timezone: profile.timezone,
     onboardingCompleted: profile.onboarding_completed,
     privacyAcknowledgedAt: profile.privacy_acknowledged_at,
+    safetyBuffer: profile.safety_buffer,
   });
 }

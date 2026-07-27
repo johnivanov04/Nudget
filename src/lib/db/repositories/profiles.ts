@@ -28,4 +28,12 @@ export const profilesRepo = {
       .eq('id', userId);
     if (error) throw error;
   },
+
+  async setSafetyBuffer(userId: string, safetyBuffer: number): Promise<void> {
+    const { error } = await getSupabaseAdmin()
+      .from('profiles')
+      .update({ safety_buffer: safetyBuffer })
+      .eq('id', userId);
+    if (error) throw error;
+  },
 };

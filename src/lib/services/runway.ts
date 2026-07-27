@@ -77,6 +77,7 @@ export async function computeRunwayForUser(
     transactions: txnRows.map(transactionRowToEngine),
     bills,
     schedule: scheduleRowToEngine(schedule),
+    safetyBuffer: profile?.safety_buffer ?? 0,
     lastUpdatedAt: latestSyncAt(items),
     now: now.toISOString(),
   });

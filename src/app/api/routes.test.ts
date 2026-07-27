@@ -81,6 +81,7 @@ describe('GET /api/me', () => {
       timezone: 'America/Los_Angeles',
       onboarding_completed: true,
       privacy_acknowledged_at: '2026-06-20T00:00:00.000Z',
+      safety_buffer: 50,
       created_at: '',
       updated_at: '',
     });
@@ -93,6 +94,7 @@ describe('GET /api/me', () => {
       timezone: 'America/Los_Angeles',
       onboardingCompleted: true,
       privacyAcknowledgedAt: '2026-06-20T00:00:00.000Z',
+      safetyBuffer: 50,
     });
     expect(profilesRepo.getById).toHaveBeenCalledWith('user-A');
   });

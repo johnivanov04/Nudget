@@ -130,3 +130,10 @@ export const accountIncludedSchema = z.object({
   included: z.boolean(),
 });
 export type AccountIncludedBody = z.infer<typeof accountIncludedSchema>;
+
+// --- Safety buffer ---------------------------------------------------------
+
+export const safetyBufferSchema = z.object({
+  safetyBuffer: z.number().finite().nonnegative(),
+});
+export type SafetyBufferBody = z.infer<typeof safetyBufferSchema>;

@@ -242,6 +242,18 @@ struct NudgetAPI {
         _ = try await postAuthed(path: "api/onboarding/privacy", token: token, body: [:])
     }
 
+    /// `GET /api/me` — the caller's safety buffer (0 if unset).
+    func safetyBuffer(token: String) async throws -> Double {
+        let data = try await getAuthed(path: "api/me", token: token)
+        struct MeResponse: Decodable { let safetyBuffer: Double? }
+        return (try? JSONDecoder().decode(MeResponse.self, from: data))?.safetyBuffer ?? 0
+    }
+
+    /// `POST /api/me/safety-buffer` — set the safety buffer (recomputes the runway).
+    func saveSafetyBuffer(token: String, _ value: Double) async throws {
+        _ = try await postAuthed(path: "api/me/safety-buffer", token: token, body: ["safetyBuffer": value])
+    }
+
     /// `POST /api/device/register` — register this device's APNs token for push.
     /// The backend stores it encrypted; the raw token is never returned.
     func registerDevice(token: String, deviceToken: String) async throws {

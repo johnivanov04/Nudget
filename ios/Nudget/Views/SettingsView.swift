@@ -7,6 +7,7 @@ struct SettingsView: View {
     private let onAccountDeleted: () -> Void
 
     @State private var showDeleteConfirm = false
+    @FocusState private var bufferFocused: Bool
 
     init(token: String, onClose: @escaping () -> Void, onAccountDeleted: @escaping () -> Void) {
         _vm = StateObject(wrappedValue: SettingsViewModel(token: token))
@@ -22,6 +23,7 @@ struct SettingsView: View {
                     ProgressView()
                 } else {
                     paydaySection
+                    safetyBufferSection
                     notificationsSection
                     aboutSection
                     dangerSection
@@ -51,6 +53,30 @@ struct SettingsView: View {
             } label: {
                 Label("Payday", systemImage: "calendar")
             }
+        }
+    }
+
+    private var safetyBufferSection: some View {
+        Section {
+            HStack {
+                Label("Keep untouched", systemImage: "shield.lefthalf.filled")
+                Spacer()
+                Text("$")
+                    .foregroundStyle(.secondary)
+                TextField("0", value: $vm.safetyBuffer, format: .number)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 100)
+                    .focused($bufferFocused)
+            }
+        } header: {
+            Text("Safety buffer")
+        } footer: {
+            Text("Nudget keeps this amount out of your safe-to-spend, so you always have a cushion before payday.")
+        }
+        // Persist when the field loses focus (avoids saving on every keystroke).
+        .onChange(of: bufferFocused) { _, focused in
+            if !focused { Task { await vm.saveSafetyBuffer() } }
         }
     }
 

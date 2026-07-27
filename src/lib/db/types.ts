@@ -28,6 +28,8 @@ export interface ProfileRow {
   timezone: string; // IANA tz, e.g. 'America/Los_Angeles'
   onboarding_completed: boolean;
   privacy_acknowledged_at: string | null;
+  /** Per-user cushion subtracted from safe-to-spend (dollars, >= 0). */
+  safety_buffer: number;
   created_at: string;
   updated_at: string;
 }

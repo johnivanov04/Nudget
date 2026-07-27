@@ -3,6 +3,7 @@ import Foundation
 @MainActor
 final class SettingsViewModel: ObservableObject {
     @Published var prefs = NotificationPreferences.fallback
+    @Published var safetyBuffer: Double = 0
     @Published private(set) var isLoading = true
     @Published private(set) var isDeleting = false
     @Published private(set) var isSendingTest = false
@@ -24,10 +25,21 @@ final class SettingsViewModel: ObservableObject {
         error = nil
         do {
             prefs = try await api.notificationPreferences(token: token)
+            // Best-effort: don't fail the whole screen if this errors.
+            safetyBuffer = (try? await api.safetyBuffer(token: token)) ?? safetyBuffer
         } catch {
             self.error = message(error)
         }
         isLoading = false
+    }
+
+    /// Persist the safety buffer (server recomputes the runway).
+    func saveSafetyBuffer() async {
+        do {
+            try await api.saveSafetyBuffer(token: token, max(0, safetyBuffer))
+        } catch {
+            self.error = message(error)
+        }
     }
 
     /// Persist the current preferences (debounce-free; called on change/commit).
