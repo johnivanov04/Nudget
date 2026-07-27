@@ -110,6 +110,22 @@ export async function syncTransactionsForItem(item: PlaidItemRow): Promise<SyncS
   await transactionsRepo.deleteByPlaidIds(collected.removed);
   await plaidItemsRepo.updateSyncState(item.id, collected.nextCursor);
 
+  // Refresh stored balances so available cash tracks the real balance, not the
+  // one captured at link time. Best-effort — the transaction sync already
+  // committed, so a balance hiccup shouldn't fail it.
+  try {
+    const { data } = await getPlaidClient().accountsGet({ access_token: accessToken });
+    await accountsRepo.updateBalances(
+      data.accounts.map((a) => ({
+        plaidAccountId: a.account_id,
+        available: a.balances?.available ?? null,
+        current: a.balances?.current ?? null,
+      })),
+    );
+  } catch {
+    // Leave the last-known balances in place.
+  }
+
   // A successful sync means any prior re-auth/error state is resolved.
   if (item.status !== 'active') {
     await plaidItemsRepo.setStatus(item.id, 'active');

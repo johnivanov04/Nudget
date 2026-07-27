@@ -12,6 +12,27 @@ export const accountsRepo = {
     return (data as AccountRow[]) ?? [];
   },
 
+  /**
+   * Refresh stored balances for a set of accounts (keyed by plaid_account_id).
+   * Only touches balance columns, so account-inclusion toggles are preserved.
+   */
+  async updateBalances(
+    balances: Array<{
+      plaidAccountId: string;
+      available: number | null;
+      current: number | null;
+    }>,
+  ): Promise<void> {
+    const admin = getSupabaseAdmin();
+    for (const b of balances) {
+      const { error } = await admin
+        .from('accounts')
+        .update({ available_balance: b.available, current_balance: b.current })
+        .eq('plaid_account_id', b.plaidAccountId);
+      if (error) throw error;
+    }
+  },
+
   /** Upsert accounts returned by a Plaid sync, keyed by plaid_account_id. */
   async upsertMany(
     rows: Array<

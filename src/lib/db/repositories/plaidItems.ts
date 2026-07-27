@@ -43,6 +43,16 @@ export const plaidItemsRepo = {
     return (data as PlaidItemRow[]) ?? [];
   },
 
+  /** All items that can still be synced (excludes disconnected). For the cron. */
+  async listAllSyncable(): Promise<PlaidItemRow[]> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('plaid_items')
+      .select('*')
+      .neq('status', 'disconnected');
+    if (error) throw error;
+    return (data as PlaidItemRow[]) ?? [];
+  },
+
   /** Ownership-scoped fetch — for user-triggered sync. */
   async getOwned(userId: string, itemId: string): Promise<PlaidItemRow | null> {
     const { data, error } = await getSupabaseAdmin()

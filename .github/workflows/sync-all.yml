@@ -1,0 +1,31 @@
+name: Sync all accounts
+
+# Background refresh so balances + transactions stay current without the user
+# opening the app. Complements Plaid webhooks (near-real-time pushes) as a safety
+# net. Every 3 hours — transactions/balances come with the item so this adds no
+# per-call Plaid cost.
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: sync-all
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Trigger sync-all cron endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' --max-time 300 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            https://nudget-taupe.vercel.app/api/cron/sync-all)
+          echo "HTTP $code"
+          cat /tmp/resp.json || true
+          echo
+          test "$code" = "200"

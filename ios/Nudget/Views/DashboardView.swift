@@ -3,6 +3,7 @@ import SwiftUI
 struct DashboardView: View {
     @EnvironmentObject private var session: SessionStore
     @StateObject private var model: DashboardViewModel
+    @Environment(\.scenePhase) private var scenePhase
     @State private var privacyMode = false
     @State private var showOnboarding = false
     @State private var showAccounts = false
@@ -74,6 +75,13 @@ struct DashboardView: View {
             }
         }
         .task { await model.load() }
+        .onChange(of: scenePhase) { _, phase in
+            // Returning to the app: pull fresh bank data in the background so the
+            // numbers are current without the user doing anything.
+            if phase == .active, session.isSignedIn {
+                Task { await model.refresh() }
+            }
+        }
         .onChange(of: model.state) { _, newValue in
             // Expired/invalid token -> drop back to sign-in.
             if newValue == .unauthorized { session.signOut() }
@@ -158,7 +166,7 @@ struct DashboardView: View {
             .padding(20)
             .frame(maxWidth: .infinity)
         }
-        .refreshable { await model.load() }
+        .refreshable { await model.refresh() }
     }
 
     // MARK: - Dashboard sections

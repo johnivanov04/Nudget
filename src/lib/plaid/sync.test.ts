@@ -3,8 +3,10 @@ import type { PlaidItemRow } from '@/lib/db/types';
 
 const m = vi.hoisted(() => ({
   transactionsSync: vi.fn(),
+  accountsGet: vi.fn(),
   getDecryptedAccessToken: vi.fn(),
   listAccounts: vi.fn(),
+  updateBalances: vi.fn(),
   upsertMany: vi.fn(),
   deleteByPlaidIds: vi.fn(),
   updateSyncState: vi.fn(),
@@ -12,7 +14,7 @@ const m = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/plaid/client', () => ({
-  getPlaidClient: () => ({ transactionsSync: m.transactionsSync }),
+  getPlaidClient: () => ({ transactionsSync: m.transactionsSync, accountsGet: m.accountsGet }),
 }));
 vi.mock('@/lib/db/repositories', () => ({
   plaidItemsRepo: {
@@ -20,7 +22,7 @@ vi.mock('@/lib/db/repositories', () => ({
     updateSyncState: m.updateSyncState,
     setStatus: m.setStatus,
   },
-  accountsRepo: { listByUser: m.listAccounts },
+  accountsRepo: { listByUser: m.listAccounts, updateBalances: m.updateBalances },
   transactionsRepo: { upsertMany: m.upsertMany, deleteByPlaidIds: m.deleteByPlaidIds },
 }));
 
@@ -93,6 +95,10 @@ describe('syncTransactionsForItem', () => {
     m.upsertMany.mockResolvedValue(undefined);
     m.deleteByPlaidIds.mockResolvedValue(undefined);
     m.updateSyncState.mockResolvedValue(undefined);
+    m.accountsGet.mockResolvedValue({
+      data: { accounts: [{ account_id: 'plaid-acct', balances: { available: 2000, current: 2100 } }] },
+    });
+    m.updateBalances.mockResolvedValue(undefined);
   });
 
   it('upserts mapped rows, deletes removed, then advances the cursor', async () => {
@@ -148,5 +154,23 @@ describe('syncTransactionsForItem', () => {
 
     await syncTransactionsForItem(broken);
     expect(m.setStatus).toHaveBeenCalledWith('item1', 'active');
+  });
+
+  it('refreshes stored balances from Plaid after a successful sync', async () => {
+    m.transactionsSync.mockResolvedValue(page({ next_cursor: 'c2' }));
+
+    await syncTransactionsForItem(item);
+    expect(m.updateBalances).toHaveBeenCalledWith([
+      { plaidAccountId: 'plaid-acct', available: 2000, current: 2100 },
+    ]);
+  });
+
+  it('does not fail the sync if the balance refresh errors', async () => {
+    m.transactionsSync.mockResolvedValue(page({ next_cursor: 'c2' }));
+    m.accountsGet.mockRejectedValue(new Error('balance blip'));
+
+    const summary = await syncTransactionsForItem(item);
+    expect(summary.itemId).toBe('item1'); // sync still succeeded
+    expect(m.updateSyncState).toHaveBeenCalled();
   });
 });

@@ -25,8 +25,17 @@ final class DashboardViewModel: ObservableObject {
         self.api = api
     }
 
-    func load() async {
-        state = .loading
+    /// Pull fresh data from the bank (transactions + balances), then reload the
+    /// recomputed snapshot. Best-effort — if the sync fails we still show the
+    /// latest cached numbers rather than an error. Keeps the current content
+    /// visible (no skeleton flash) since it's used by pull-to-refresh/foreground.
+    func refresh() async {
+        try? await api.syncTransactions(token: token)
+        await load(showLoading: false)
+    }
+
+    func load(showLoading: Bool = true) async {
+        if showLoading { state = .loading }
         do {
             let response = try await api.runwayCurrent(token: token)
             if let snapshot = response.snapshot, !snapshot.needsData {
