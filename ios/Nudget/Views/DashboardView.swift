@@ -20,13 +20,13 @@ struct DashboardView: View {
             Group {
                 switch model.state {
                 case .loading:
-                    ProgressView("Loading your runway…")
+                    DashboardSkeleton()
                 case .loaded(let snapshot):
                     loadedState(snapshot)
                 case .needsSetup:
                     needsSetupState
                 case .unauthorized:
-                    ProgressView()
+                    DashboardSkeleton()
                 case .failed(let message):
                     errorState(message)
                 }
