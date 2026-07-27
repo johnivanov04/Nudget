@@ -336,7 +336,9 @@ struct NudgetAPI {
         fallbackToken: String,
         build: (String) -> URLRequest
     ) async throws -> Data {
-        var bearer = await AuthTokenProvider.shared.accessToken ?? fallbackToken
+        // Proactively get a fresh token (refreshes before expiry), so we rarely
+        // hit a 401 at all. Falls back to the passed token if there's no session.
+        var bearer = await AuthTokenProvider.shared.validAccessToken() ?? fallbackToken
         var didRetry = false
 
         while true {

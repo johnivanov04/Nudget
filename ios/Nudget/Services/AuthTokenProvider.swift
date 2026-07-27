@@ -35,6 +35,29 @@ final class AuthTokenProvider {
     var accessToken: String? { Keychain.get(Self.accessAccount) }
     private var refreshToken: String? { Keychain.get(Self.refreshAccount) }
 
+    /// A guaranteed-fresh access token: refreshes proactively if the current one
+    /// is expired or about to expire, so requests almost never hit a 401. Returns
+    /// nil only if there's no session at all. This is the primary path; the
+    /// reactive 401 retry in NudgetAPI stays as a backstop.
+    func validAccessToken() async -> String? {
+        let current = accessToken
+        // Fresh enough → use as-is.
+        if let current, !JWT.isExpired(current) { return current }
+        // Expired/near-expiry but we have a refresh token → renew.
+        if refreshToken != nil {
+            let result = await refresh()
+            if result == .refreshed { return accessToken }
+            if result == .transient { return current } // let the request try + 401-retry
+            return nil // .invalid → session ended
+        }
+        return current // no refresh token — return whatever we have (may 401 → signOut)
+    }
+
+    /// Proactively ensure the session is fresh (called on launch/foreground).
+    func ensureFresh() async {
+        _ = await validAccessToken()
+    }
+
     /// Refresh the access token. Safe to call concurrently — a single refresh is
     /// shared. A transient (network/5xx) failure does NOT sign the user out.
     func refresh() async -> RefreshResult {
@@ -42,6 +65,9 @@ final class AuthTokenProvider {
         let task = Task { () -> RefreshResult in
             defer { inFlight = nil }
             guard let refreshToken else {
+                // No stored refresh token — a broken/legacy session. This is the
+                // usual cause of "logged out constantly"; capture it distinctly.
+                SentrySDK.capture(message: "Token refresh skipped: no refresh token in Keychain")
                 onInvalidated?()
                 return .invalid
             }
@@ -50,6 +76,8 @@ final class AuthTokenProvider {
                 Keychain.set(session.accessToken, for: Self.accessAccount)
                 if let newRefresh = session.refreshToken {
                     Keychain.set(newRefresh, for: Self.refreshAccount)
+                } else {
+                    SentrySDK.capture(message: "Refresh succeeded but returned no refresh_token")
                 }
                 onRefresh?(session)
                 return .refreshed

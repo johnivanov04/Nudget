@@ -13,6 +13,8 @@ final class SessionStore: ObservableObject {
 
     @Published private(set) var state: State = .loading
 
+    var isSignedIn: Bool { if case .signedIn = state { return true } else { return false } }
+
     private let auth: AuthService
     private static let tokenAccount = AuthTokenProvider.accessAccount
     private static let refreshAccount = AuthTokenProvider.refreshAccount
@@ -38,6 +40,9 @@ final class SessionStore: ObservableObject {
         if let token = Keychain.get(Self.tokenAccount) {
             state = .signedIn(token: token, email: Keychain.get(Self.emailAccount))
             PushManager.shared.onSignedIn(token: token)
+            // Proactively refresh a stale token on launch (while online), so the
+            // first real request doesn't 401 and the session stays alive.
+            Task { await AuthTokenProvider.shared.ensureFresh() }
         } else {
             state = .signedOut
         }
