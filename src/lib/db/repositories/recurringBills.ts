@@ -36,6 +36,48 @@ export const recurringBillsRepo = {
     if (error) throw error;
   },
 
+  /**
+   * Create a user-entered bill. Stored as `confirmed` (the user is certain) with
+   * no merchant_key/confidence so detection never touches it. It flows into the
+   * runway like any confirmed bill.
+   */
+  async createManual(params: {
+    userId: string;
+    merchantName: string;
+    amountEstimate: number;
+    nextExpectedDate: string;
+    cadence: string;
+  }): Promise<RecurringBillRow> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('recurring_bills')
+      .insert({
+        user_id: params.userId,
+        merchant_name: params.merchantName,
+        amount_estimate: params.amountEstimate,
+        next_expected_date: params.nextExpectedDate,
+        cadence: params.cadence,
+        merchant_key: null,
+        confidence: null,
+        status: 'confirmed',
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as RecurringBillRow;
+  },
+
+  /** Delete a bill the caller owns. Returns true if a row was removed. */
+  async deleteOwned(userId: string, billId: string): Promise<boolean> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('recurring_bills')
+      .delete()
+      .eq('id', billId)
+      .eq('user_id', userId) // ownership guard
+      .select('id');
+    if (error) throw error;
+    return Array.isArray(data) && data.length > 0;
+  },
+
   /** Confirm/reject/edit a bill. Confirmed user data outranks guesses. */
   async update(
     userId: string,

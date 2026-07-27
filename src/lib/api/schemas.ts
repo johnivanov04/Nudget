@@ -96,6 +96,15 @@ export const confirmBillSchema = z.object({
 });
 export type ConfirmBillBody = z.infer<typeof confirmBillSchema>;
 
+/** Create a manual bill the user adds themselves (e.g. rent Plaid can't see). */
+export const createBillSchema = z.object({
+  merchantName: z.string().trim().min(1, 'name is required').max(100),
+  amountEstimate: z.number().finite().nonnegative(),
+  nextExpectedDate: isoDateForBill,
+  cadence: z.enum(['weekly', 'biweekly', 'monthly', 'annual']).default('monthly'),
+});
+export type CreateBillBody = z.infer<typeof createBillSchema>;
+
 // --- Notifications (Phase 5 backend slice) ---------------------------------
 
 export const deviceRegisterSchema = z.object({
