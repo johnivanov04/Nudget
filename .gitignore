@@ -40,7 +40,7 @@ next-env.d.ts
 # iOS / Xcode — the project is generated from ios/project.yml via XcodeGen
 ios/*.xcodeproj
 ios/Nudget/Info.plist
-ios/Nudget/Secrets.swift
+ios/Shared/Secrets.swift
 ios/Nudget/Nudget.entitlements
 ios/NudgetWidget/Info.plist
 ios/NudgetWidget/NudgetWidget.entitlements

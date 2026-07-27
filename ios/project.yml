@@ -43,6 +43,10 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.app.nudget.ios
+        # Shared keychain group so the widget extension can read the auth token
+        # and fetch a fresh snapshot on its own schedule.
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)app.nudget.shared
         # APNs environment. TestFlight/App Store builds use PRODUCT tokens, so this
         # is "production". NOTE: local Xcode dev builds then push via sandbox tokens,
         # which won't deliver against the production host — test push via TestFlight.
@@ -86,6 +90,9 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.app.nudget.ios
+        # Same shared keychain group as the app — lets the widget read the token.
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)app.nudget.shared
     info:
       path: NudgetWidget/Info.plist
       properties:

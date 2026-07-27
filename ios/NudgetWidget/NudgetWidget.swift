@@ -16,10 +16,15 @@ struct Provider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SnapshotEntry>) -> Void) {
-        let entry = SnapshotEntry(date: Date(), snapshot: SharedStore.load())
-        // The app refreshes the shared snapshot on open; this is a fallback cadence.
-        let next = Date().addingTimeInterval(30 * 60)
-        completion(Timeline(entries: [entry], policy: .after(next)))
+        Task {
+            // Fetch fresh data directly so the widget stays current even if the
+            // app hasn't been opened; fall back to the last cached snapshot.
+            let snapshot = await WidgetData.fetchLatest() ?? SharedStore.load()
+            let entry = SnapshotEntry(date: Date(), snapshot: snapshot)
+            // WidgetKit budgets refreshes (~every 15–60 min); ask for ~30 min.
+            let next = Date().addingTimeInterval(30 * 60)
+            completion(Timeline(entries: [entry], policy: .after(next)))
+        }
     }
 }
 
