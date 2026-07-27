@@ -172,6 +172,31 @@ struct NudgetAPI {
         _ = try await postAuthed(path: "api/bills/\(billId)/confirm", token: token, body: body)
     }
 
+    /// `POST /api/bills` — add a manual bill (rent, annual charges Plaid misses).
+    func createBill(
+        token: String,
+        merchantName: String,
+        amountEstimate: Double,
+        nextExpectedDate: String,
+        cadence: String
+    ) async throws {
+        _ = try await postAuthed(
+            path: "api/bills",
+            token: token,
+            body: [
+                "merchantName": merchantName,
+                "amountEstimate": amountEstimate,
+                "nextExpectedDate": nextExpectedDate,
+                "cadence": cadence,
+            ]
+        )
+    }
+
+    /// `DELETE /api/bills/:id` — delete a bill (recomputes the runway).
+    func deleteBill(token: String, billId: String) async throws {
+        _ = try await deleteAuthed(path: "api/bills/\(billId)", token: token)
+    }
+
     /// `GET /api/accounts` — the user's linked accounts.
     func accounts(token: String) async throws -> [Account] {
         let data = try await getAuthed(path: "api/accounts", token: token)

@@ -35,6 +35,40 @@ final class BillsViewModel: ObservableObject {
     func confirm(_ bill: Bill) async { await update(bill, status: "confirmed") }
     func reject(_ bill: Bill) async { await update(bill, status: "rejected") }
 
+    /// Add a manual bill, then reload so it appears in the confirmed list.
+    func addBill(name: String, amount: Double, nextDate: String, cadence: String) async -> Bool {
+        error = nil
+        do {
+            try await api.createBill(
+                token: token,
+                merchantName: name,
+                amountEstimate: amount,
+                nextExpectedDate: nextDate,
+                cadence: cadence
+            )
+            didChange = true
+            await load()
+            return true
+        } catch {
+            self.error = message(error)
+            return false
+        }
+    }
+
+    /// Permanently delete a bill (used for manual bills).
+    func delete(_ bill: Bill) async {
+        busyIds.insert(bill.id)
+        error = nil
+        do {
+            try await api.deleteBill(token: token, billId: bill.id)
+            didChange = true
+            bills.removeAll { $0.id == bill.id }
+        } catch {
+            self.error = message(error)
+        }
+        busyIds.remove(bill.id)
+    }
+
     func edit(_ bill: Bill, amount: Double, nextDate: String) async {
         await update(bill, status: "confirmed", amount: amount, nextDate: nextDate)
     }

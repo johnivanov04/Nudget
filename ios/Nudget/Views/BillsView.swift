@@ -4,6 +4,7 @@ struct BillsView: View {
     @StateObject private var vm: BillsViewModel
     private let onClose: () -> Void
     @State private var editing: Bill?
+    @State private var showingAdd = false
 
     init(token: String, onClose: @escaping () -> Void) {
         _vm = StateObject(wrappedValue: BillsViewModel(token: token))
@@ -16,6 +17,11 @@ struct BillsView: View {
                 .navigationTitle("Bills before payday")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { showingAdd = true } label: {
+                            Label("Add bill", systemImage: "plus")
+                        }
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Done") { onClose() }
                     }
@@ -23,6 +29,11 @@ struct BillsView: View {
                 .sheet(item: $editing) { bill in
                     EditBillSheet(bill: bill) { amount, nextDate in
                         Task { await vm.edit(bill, amount: amount, nextDate: nextDate) }
+                    }
+                }
+                .sheet(isPresented: $showingAdd) {
+                    AddBillSheet { name, amount, nextDate, cadence in
+                        Task { await vm.addBill(name: name, amount: amount, nextDate: nextDate, cadence: cadence) }
                     }
                 }
         }
@@ -34,11 +45,14 @@ struct BillsView: View {
         if vm.isLoading {
             ProgressView()
         } else if vm.bills.isEmpty {
-            ContentUnavailableView(
-                "No bills detected yet",
-                systemImage: "calendar.badge.clock",
-                description: Text(vm.error ?? "As Nudget sees more of your spending, recurring bills will show up here for you to confirm.")
-            )
+            ContentUnavailableView {
+                Label("No bills yet", systemImage: "calendar.badge.clock")
+            } description: {
+                Text(vm.error ?? "Nudget detects recurring bills from your spending — or add one Plaid can't see, like rent.")
+            } actions: {
+                Button("Add a bill") { showingAdd = true }
+                    .buttonStyle(.borderedProminent)
+            }
         } else {
             List {
                 if let error = vm.error {
@@ -49,7 +63,7 @@ struct BillsView: View {
                         row(bill)
                     }
                 } footer: {
-                    Text("Swipe a bill to confirm or remove it. Confirmed bills always count toward your runway; “likely” ones are Nudget’s best guess.")
+                    Text("Swipe to confirm, delete, or reject. Confirmed bills count toward your runway; “likely” ones are Nudget’s best guess. Tap ＋ to add one Plaid can’t see, like rent.")
                 }
             }
         }
@@ -85,12 +99,20 @@ struct BillsView: View {
         .contentShape(Rectangle())
         .onTapGesture { editing = bill }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive) {
-                Task { await vm.reject(bill) }
-            } label: {
-                Label("Not a bill", systemImage: "xmark")
-            }
-            if !bill.isConfirmed {
+            if bill.isConfirmed {
+                // Confirmed (incl. manual) bills: hard-delete.
+                Button(role: .destructive) {
+                    Task { await vm.delete(bill) }
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            } else {
+                // Candidates: reject so detection remembers, or confirm.
+                Button(role: .destructive) {
+                    Task { await vm.reject(bill) }
+                } label: {
+                    Label("Not a bill", systemImage: "xmark")
+                }
                 Button {
                     Task { await vm.confirm(bill) }
                 } label: {
@@ -149,6 +171,67 @@ private struct EditBillSheet: View {
         guard let iso else { return nil }
         return formatter.date(from: iso)
     }
+    private static func format(_ date: Date) -> String { formatter.string(from: date) }
+
+    private static let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+}
+
+/// Add a manual bill (name, amount, next date, cadence).
+private struct AddBillSheet: View {
+    let onSave: (String, Double, String, String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var amount: Double? = nil
+    @State private var date = Date()
+    @State private var cadence = "monthly"
+
+    private let cadences = ["weekly", "biweekly", "monthly", "annual"]
+
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty && (amount ?? 0) > 0
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Name (e.g. Rent)", text: $name)
+                    TextField("Amount", value: $amount, format: .currency(code: "USD"))
+                        .keyboardType(.decimalPad)
+                }
+                Section("Next due") {
+                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                }
+                Section("Repeats") {
+                    Picker("Repeats", selection: $cadence) {
+                        ForEach(cadences, id: \.self) { Text($0.capitalized).tag($0) }
+                    }
+                }
+            }
+            .navigationTitle("Add a bill")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        onSave(name.trimmingCharacters(in: .whitespaces), amount ?? 0, Self.format(date), cadence)
+                        dismiss()
+                    }
+                    .disabled(!canSave)
+                }
+            }
+        }
+    }
+
     private static func format(_ date: Date) -> String { formatter.string(from: date) }
 
     private static let formatter: DateFormatter = {
