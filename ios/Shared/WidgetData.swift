@@ -37,40 +37,16 @@ enum WidgetData {
         return snapshot
     }
 
-    /// A valid access token from the shared keychain, refreshing via Supabase if
-    /// the current one is expired. Nil if there's no session.
+    /// A still-valid access token from the shared keychain, or nil.
+    ///
+    /// The widget deliberately does NOT refresh the token itself: the app owns
+    /// refresh, and having two processes rotate the same refresh token can trip
+    /// Supabase's reuse detection and end the session. If the token is expired,
+    /// we skip the fetch and the widget shows the last cached value until the app
+    /// (which refreshes proactively on launch/foreground) freshens it.
     private static func validAccessToken() async -> String? {
-        guard let access = Keychain.get(accessAccount) else { return nil }
-        if !JWT.isExpired(access) { return access }
-        guard let refresh = Keychain.get(refreshAccount) else { return access }
-        return await refreshed(using: refresh) ?? access
-    }
-
-    private static func refreshed(using refreshToken: String) async -> String? {
-        var comps = URLComponents(
-            url: Secrets.supabaseURL.appendingPathComponent("auth/v1/token"),
-            resolvingAgainstBaseURL: false
-        )
-        comps?.queryItems = [URLQueryItem(name: "grant_type", value: "refresh_token")]
-        guard let url = comps?.url else { return nil }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(Secrets.supabaseAnonKey, forHTTPHeaderField: "apikey")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: ["refresh_token": refreshToken])
-        request.timeoutInterval = 15
-
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              let http = response as? HTTPURLResponse, http.statusCode == 200,
-              let session = try? JSONDecoder().decode(RefreshResponse.self, from: data)
-        else { return nil }
-
-        Keychain.set(session.accessToken, for: accessAccount)
-        if let newRefresh = session.refreshToken {
-            Keychain.set(newRefresh, for: refreshAccount)
-        }
-        return session.accessToken
+        guard let access = Keychain.get(accessAccount), !JWT.isExpired(access) else { return nil }
+        return access
     }
 }
 
@@ -91,11 +67,3 @@ private struct WidgetResponse: Decodable {
     }
 }
 
-private struct RefreshResponse: Decodable {
-    let accessToken: String
-    let refreshToken: String?
-    enum CodingKeys: String, CodingKey {
-        case accessToken = "access_token"
-        case refreshToken = "refresh_token"
-    }
-}
