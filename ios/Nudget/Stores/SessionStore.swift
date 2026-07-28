@@ -66,6 +66,11 @@ final class SessionStore: ObservableObject {
         persist(session, fallbackEmail: email)
     }
 
+    func signInWithApple(idToken: String, nonce: String, fallbackEmail: String?) async throws {
+        let session = try await auth.signInWithApple(idToken: idToken, nonce: nonce)
+        persist(session, fallbackEmail: fallbackEmail ?? "")
+    }
+
     func signOut() {
         Keychain.delete(Self.tokenAccount)
         Keychain.delete(Self.refreshAccount)

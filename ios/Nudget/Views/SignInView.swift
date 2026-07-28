@@ -1,4 +1,5 @@
 import SwiftUI
+import AuthenticationServices
 
 struct SignInView: View {
     @EnvironmentObject private var session: SessionStore
@@ -9,6 +10,8 @@ struct SignInView: View {
     @State private var isWorking = false
     @State private var message: String?
     @State private var isSignUp = false
+    /// Raw nonce for the in-flight Sign in with Apple request.
+    @State private var appleNonce = ""
 
     /// Sign-up only: the two password fields must match before we allow submit.
     private var passwordsMatch: Bool { password == confirmPassword }
@@ -106,6 +109,25 @@ struct SignInView: View {
                     || (isSignUp && (confirmPassword.isEmpty || !passwordsMatch))
             )
 
+            HStack {
+                VStack { Divider() }
+                Text("or").font(.caption).foregroundStyle(.secondary)
+                VStack { Divider() }
+            }
+            .padding(.vertical, 2)
+
+            SignInWithAppleButton(.signIn) { request in
+                let nonce = AppleNonce.random()
+                appleNonce = nonce
+                request.requestedScopes = [.fullName, .email]
+                request.nonce = AppleNonce.sha256(nonce)
+            } onCompletion: { result in
+                handleApple(result)
+            }
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 50)
+            .disabled(isWorking)
+
             Spacer()
             Spacer()
         }
@@ -121,6 +143,34 @@ struct SignInView: View {
             .font(.caption)
             .foregroundStyle(color)
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func handleApple(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .failure(let error):
+            // The user cancelling isn't an error worth surfacing.
+            if (error as? ASAuthorizationError)?.code == .canceled { return }
+            message = error.localizedDescription
+        case .success(let auth):
+            guard let credential = auth.credential as? ASAuthorizationAppleIDCredential,
+                  let tokenData = credential.identityToken,
+                  let idToken = String(data: tokenData, encoding: .utf8)
+            else {
+                message = "Couldn't read your Apple credentials. Try again."
+                return
+            }
+            let email = credential.email // only present on first sign-in
+            isWorking = true
+            message = nil
+            Task {
+                do {
+                    try await session.signInWithApple(idToken: idToken, nonce: appleNonce, fallbackEmail: email)
+                } catch {
+                    message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                }
+                isWorking = false
+            }
+        }
     }
 
     private func submit() {

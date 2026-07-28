@@ -43,6 +43,17 @@ struct AuthService {
         )
     }
 
+    /// Sign in with Apple: exchange Apple's identity token for a Supabase session
+    /// via the id_token grant. `nonce` is the RAW nonce (Supabase hashes + checks
+    /// it against the hashed nonce embedded in the identity token).
+    func signInWithApple(idToken: String, nonce: String) async throws -> AuthSession {
+        try await authRequest(
+            path: "auth/v1/token",
+            query: [URLQueryItem(name: "grant_type", value: "id_token")],
+            body: ["provider": "apple", "id_token": idToken, "nonce": nonce]
+        )
+    }
+
     /// Exchange a refresh token for a fresh access token (silent renewal).
     func refresh(refreshToken: String) async throws -> AuthSession {
         try await authRequest(

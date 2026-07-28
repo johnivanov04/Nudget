@@ -54,6 +54,9 @@ targets:
         # Universal links for Plaid OAuth redirect (bank → /plaid-oauth → app).
         com.apple.developer.associated-domains:
           - applinks:nudget-taupe.vercel.app
+        # Sign in with Apple.
+        com.apple.developer.applesignin:
+          - Default
     info:
       path: Nudget/Info.plist
       properties:
