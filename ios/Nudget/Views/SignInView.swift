@@ -53,6 +53,15 @@ struct SignInView: View {
                     .foregroundStyle(.secondary)
             }
 
+            // Diagnostic: why the last session ended (helps debug auto-logouts).
+            if !isSignUp, let reason = AuthDiagnostics.lastSignOutReason {
+                Text("Signed out: \(reason)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+
             VStack(spacing: 12) {
                 TextField("Email", text: $email)
                     .textContentType(.username)

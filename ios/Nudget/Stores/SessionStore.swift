@@ -69,6 +69,7 @@ final class SessionStore: ObservableObject {
     }
 
     private func persist(_ session: AuthSession, fallbackEmail: String) {
+        AuthDiagnostics.clear() // fresh session — drop any stale sign-out reason
         let email = session.user?.email ?? fallbackEmail
         Keychain.set(session.accessToken, for: Self.tokenAccount)
         if let refreshToken = session.refreshToken {

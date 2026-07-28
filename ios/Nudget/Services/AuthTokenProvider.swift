@@ -67,7 +67,9 @@ final class AuthTokenProvider {
             guard let refreshToken else {
                 // No stored refresh token — a broken/legacy session. This is the
                 // usual cause of "logged out constantly"; capture it distinctly.
-                SentrySDK.capture(message: "Token refresh skipped: no refresh token in Keychain")
+                let reason = "no refresh token stored"
+                SentrySDK.capture(message: "Token refresh skipped: \(reason)")
+                AuthDiagnostics.record(signOutReason: reason)
                 onInvalidated?()
                 return .invalid
             }
@@ -83,8 +85,10 @@ final class AuthTokenProvider {
                 return .refreshed
             } catch {
                 // Report the real reason so recurring logouts are diagnosable.
-                SentrySDK.capture(message: "Token refresh failed: \(error.localizedDescription)")
+                let detail = Self.reasonString(from: error)
+                SentrySDK.capture(message: "Token refresh failed: \(detail)")
                 if AuthError.isDefinitiveAuthFailure(error) {
+                    AuthDiagnostics.record(signOutReason: detail)
                     onInvalidated?() // refresh token truly rejected → end session
                     return .invalid
                 }
@@ -93,5 +97,32 @@ final class AuthTokenProvider {
         }
         inFlight = task
         return await task.value
+    }
+
+    /// A short, PII-free reason for a refresh failure (status + server code).
+    private static func reasonString(from error: Error) -> String {
+        if case let AuthError.server(status, message) = error {
+            return "refresh rejected (HTTP \(status)): \(message)"
+        }
+        return "refresh error: \(error.localizedDescription)"
+    }
+}
+
+/// A tiny store for the last auto-sign-out reason, shown on the sign-in screen so
+/// recurring logouts are self-diagnosing without needing Sentry. Reason strings
+/// are PII-free (status codes + server error codes, never tokens).
+enum AuthDiagnostics {
+    private static let key = "lastSignOutReason"
+
+    static func record(signOutReason reason: String) {
+        UserDefaults.standard.set(reason, forKey: key)
+    }
+
+    static var lastSignOutReason: String? {
+        UserDefaults.standard.string(forKey: key)
+    }
+
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
     }
 }
