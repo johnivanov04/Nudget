@@ -36,6 +36,8 @@ final class SessionStore: ObservableObject {
 
     /// Restore a stored session on launch (optimistic — an expired token is
     /// caught on the first 401 and signs the user out).
+    private static let hasSignedInKey = "hasSignedInBefore"
+
     func restore() {
         if let token = Keychain.get(Self.tokenAccount) {
             state = .signedIn(token: token, email: Keychain.get(Self.emailAccount))
@@ -44,6 +46,12 @@ final class SessionStore: ObservableObject {
             // first real request doesn't 401 and the session stays alive.
             Task { await AuthTokenProvider.shared.ensureFresh() }
         } else {
+            // If we've signed in before but the keychain has no token, the token
+            // was lost (e.g. a keychain access-group/entitlement change) — not a
+            // normal fresh install. Record it so the sign-in screen shows why.
+            if UserDefaults.standard.bool(forKey: Self.hasSignedInKey) {
+                AuthDiagnostics.record(signOutReason: "session lost on launch — keychain token not found")
+            }
             state = .signedOut
         }
     }
@@ -70,6 +78,7 @@ final class SessionStore: ObservableObject {
 
     private func persist(_ session: AuthSession, fallbackEmail: String) {
         AuthDiagnostics.clear() // fresh session — drop any stale sign-out reason
+        UserDefaults.standard.set(true, forKey: Self.hasSignedInKey)
         let email = session.user?.email ?? fallbackEmail
         Keychain.set(session.accessToken, for: Self.tokenAccount)
         if let refreshToken = session.refreshToken {

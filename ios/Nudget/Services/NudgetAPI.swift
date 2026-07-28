@@ -390,6 +390,10 @@ struct NudgetAPI {
                     if result == .transient {
                         throw NudgetAPIError.transport(URLError(.notConnectedToInternet))
                     }
+                } else {
+                    // Refresh succeeded, yet the backend still 401'd the fresh token
+                    // → verification/token-audience issue, not an expiry problem.
+                    AuthDiagnostics.record(signOutReason: "backend returned 401 for a freshly-refreshed token")
                 }
                 throw NudgetAPIError.unauthorized
             }
