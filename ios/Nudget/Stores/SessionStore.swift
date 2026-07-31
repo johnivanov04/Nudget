@@ -26,6 +26,8 @@ final class SessionStore: ObservableObject {
         // Silent-refresh wiring: keep the published token current on refresh, and
         // sign out only when the refresh token itself is dead.
         AuthTokenProvider.shared.onRefresh = { [weak self] session in
+            // Mirror the fresh token to the App Group so the widget can fetch.
+            SharedStore.saveAccessToken(session.accessToken)
             guard let self, case let .signedIn(_, email) = self.state else { return }
             self.state = .signedIn(token: session.accessToken, email: email)
         }
@@ -41,6 +43,7 @@ final class SessionStore: ObservableObject {
     func restore() {
         if let token = Keychain.get(Self.tokenAccount) {
             state = .signedIn(token: token, email: Keychain.get(Self.emailAccount))
+            SharedStore.saveAccessToken(token) // mirror for the widget
             PushManager.shared.onSignedIn(token: token)
             // Proactively refresh a stale token on launch (while online), so the
             // first real request doesn't 401 and the session stays alive.
@@ -85,11 +88,17 @@ final class SessionStore: ObservableObject {
         AuthDiagnostics.clear() // fresh session — drop any stale sign-out reason
         UserDefaults.standard.set(true, forKey: Self.hasSignedInKey)
         let email = session.user?.email ?? fallbackEmail
-        Keychain.set(session.accessToken, for: Self.tokenAccount)
+        // Verify the token actually persisted — a silently-failed keychain write
+        // manifests as "logged out on next launch", so surface it if it happens.
+        let stored = Keychain.set(session.accessToken, for: Self.tokenAccount)
+        if !stored {
+            AuthDiagnostics.record(signOutReason: "keychain write failed at sign-in")
+        }
         if let refreshToken = session.refreshToken {
             Keychain.set(refreshToken, for: Self.refreshAccount)
         }
         Keychain.set(email, for: Self.emailAccount)
+        SharedStore.saveAccessToken(session.accessToken) // mirror for the widget
         state = .signedIn(token: session.accessToken, email: email)
         PushManager.shared.onSignedIn(token: session.accessToken)
     }

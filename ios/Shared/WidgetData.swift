@@ -2,13 +2,10 @@ import Foundation
 
 /// Lets the widget extension fetch a fresh runway snapshot directly from the
 /// backend on its own WidgetKit schedule — so the widget stays current even if
-/// the app hasn't been opened. Reads the auth token from the shared keychain,
-/// refreshes it via Supabase if it's expired, then calls `/api/widget/snapshot`.
-/// Returns nil on any failure so the widget falls back to the last cached value.
+/// the app hasn't been opened. Reads the app's mirrored access token from the
+/// App Group, then calls `/api/widget/snapshot`. Returns nil on any failure so
+/// the widget falls back to the last cached value.
 enum WidgetData {
-    private static let accessAccount = "access_token"
-    private static let refreshAccount = "refresh_token"
-
     static func fetchLatest() async -> SharedSnapshot? {
         guard let token = await validAccessToken() else { return nil }
 
@@ -37,15 +34,14 @@ enum WidgetData {
         return snapshot
     }
 
-    /// A still-valid access token from the shared keychain, or nil.
+    /// A still-valid access token mirrored from the app, or nil.
     ///
     /// The widget deliberately does NOT refresh the token itself: the app owns
-    /// refresh, and having two processes rotate the same refresh token can trip
-    /// Supabase's reuse detection and end the session. If the token is expired,
-    /// we skip the fetch and the widget shows the last cached value until the app
-    /// (which refreshes proactively on launch/foreground) freshens it.
+    /// refresh (and mirrors the fresh token to the App Group). If the mirrored
+    /// token is expired, we skip the fetch and the widget shows the last cached
+    /// value until the app runs and freshens it.
     private static func validAccessToken() async -> String? {
-        guard let access = Keychain.get(accessAccount), !JWT.isExpired(access) else { return nil }
+        guard let access = SharedStore.loadAccessToken(), !JWT.isExpired(access) else { return nil }
         return access
     }
 }
