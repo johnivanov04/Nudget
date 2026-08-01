@@ -10,6 +10,7 @@ struct DashboardView: View {
     @State private var showBills = false
     @State private var showSettings = false
     @State private var showExplainer = false
+    @State private var showFeedback = false
     private let token: String
 
     init(token: String) {
@@ -56,6 +57,11 @@ struct DashboardView: View {
                             showSettings = true
                         } label: {
                             Label("Settings", systemImage: "gearshape")
+                        }
+                        Button {
+                            showFeedback = true
+                        } label: {
+                            Label("Send feedback", systemImage: "bubble.left.and.text.bubble.right")
                         }
                         Button(role: .destructive) {
                             session.signOut()
@@ -104,6 +110,9 @@ struct DashboardView: View {
                 showBills = false
                 Task { await model.load() }
             }
+        }
+        .sheet(isPresented: $showFeedback) {
+            FeedbackView(token: token) { showFeedback = false }
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(

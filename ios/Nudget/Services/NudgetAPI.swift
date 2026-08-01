@@ -267,6 +267,19 @@ struct NudgetAPI {
         _ = try await postAuthed(path: "api/onboarding/privacy", token: token, body: [:])
     }
 
+    /// `POST /api/feedback` — beta feedback (saved-fee moments, nudge/bill/runway).
+    func submitFeedback(
+        token: String,
+        eventType: String,
+        rating: Int? = nil,
+        freeText: String? = nil
+    ) async throws {
+        var body: [String: Any] = ["eventType": eventType]
+        if let rating { body["rating"] = rating }
+        if let freeText, !freeText.isEmpty { body["freeText"] = freeText }
+        _ = try await postAuthed(path: "api/feedback", token: token, body: body)
+    }
+
     /// `GET /api/me` — the caller's safety buffer (0 if unset).
     func safetyBuffer(token: String) async throws -> Double {
         let data = try await getAuthed(path: "api/me", token: token)
