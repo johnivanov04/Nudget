@@ -16,6 +16,7 @@ import {
   bucketDaysUntilPayday,
   type AnalyticsEvent,
 } from './sanitize';
+import { captureAnalytics } from './posthog';
 import type { RiskLevel } from '@/lib/domain/types';
 
 /** Coarse count buckets (e.g. linked accounts) — never the exact count. */
@@ -88,13 +89,22 @@ export const analyticsEvents = {
 };
 
 /**
- * Send a sanitized event to the analytics sink. No-op until a provider is wired
- * (Phase 8). Never throws — analytics must not break a user flow.
+ * Send a sanitized event to PostHog (privacy-safe product analytics), keyed by
+ * the user's opaque id. No-op unless POSTHOG_KEY is set, so dev/unconfigured
+ * environments are unaffected. Never throws — analytics must not break a flow.
+ *
+ * `distinctId` is the user's Supabase UUID — an opaque, non-PII identifier. The
+ * event properties are already bucketed/scrubbed by `buildAnalyticsEvent`, so no
+ * raw financial data ever reaches PostHog.
  */
-export function emitAnalytics(event: AnalyticsEvent): void {
+export function emitAnalytics(event: AnalyticsEvent, distinctId: string): void {
   if (process.env.NODE_ENV === 'development') {
     // eslint-disable-next-line no-console
-    console.warn('[analytics]', event.event, JSON.stringify(event.properties));
+    console.warn('[analytics]', event.event, distinctId, JSON.stringify(event.properties));
   }
-  // TODO(phase-8): forward `event` to the configured privacy-safe analytics provider.
+  try {
+    captureAnalytics(distinctId, event.event, event.properties);
+  } catch {
+    // swallow — analytics must never break a user flow
+  }
 }

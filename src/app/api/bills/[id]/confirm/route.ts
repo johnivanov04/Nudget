@@ -10,6 +10,7 @@ import { getUserFromRequest } from '@/lib/api/auth';
 import { confirmBillSchema } from '@/lib/api/schemas';
 import { recurringBillsRepo } from '@/lib/db/repositories';
 import { recomputeRunwayForUser } from '@/lib/services/runway';
+import { analyticsEvents, emitAnalytics } from '@/lib/analytics/events';
 import { ok, badRequest, unauthorized, serverError } from '@/lib/api/responses';
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -48,6 +49,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   // Reflect the change in the runway immediately.
   await recomputeRunwayForUser(user.userId);
+
+  if (parsed.data.status === 'confirmed' || parsed.data.status === 'rejected') {
+    emitAnalytics(
+      analyticsEvents.billDecision({
+        decision: parsed.data.status,
+        confidence: updated.confidence,
+        cadence: updated.cadence,
+      }),
+      user.userId,
+    );
+  }
 
   return ok({
     bill: {

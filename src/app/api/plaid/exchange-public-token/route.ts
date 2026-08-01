@@ -13,6 +13,7 @@ import { getPlaidClient } from '@/lib/plaid/client';
 import { exchangePublicTokenSchema } from '@/lib/api/schemas';
 import { plaidAccountToRow } from '@/lib/plaid/mappers';
 import { plaidItemsRepo, accountsRepo } from '@/lib/db/repositories';
+import { analyticsEvents, emitAnalytics } from '@/lib/analytics/events';
 import { ok, badRequest, unauthorized, serverError } from '@/lib/api/responses';
 
 export async function POST(req: NextRequest) {
@@ -63,6 +64,8 @@ export async function POST(req: NextRequest) {
     const { data: accountsData } = await plaid.accountsGet({ access_token: exchange.access_token });
     const rows = accountsData.accounts.map((a) => plaidAccountToRow(user.userId, item.id, a));
     await accountsRepo.upsertMany(rows);
+
+    emitAnalytics(analyticsEvents.plaidLinkCompleted(rows.length), user.userId);
 
     return ok(
       {

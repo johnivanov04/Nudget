@@ -7,6 +7,7 @@
 import type { NextRequest } from 'next/server';
 import { getUserFromRequest } from '@/lib/api/auth';
 import { profilesRepo } from '@/lib/db/repositories';
+import { analyticsEvents, emitAnalytics } from '@/lib/analytics/events';
 import { ok, unauthorized, serverError } from '@/lib/api/responses';
 
 export async function POST(req: NextRequest) {
@@ -15,6 +16,7 @@ export async function POST(req: NextRequest) {
 
   try {
     await profilesRepo.markPrivacyAcknowledged(user.userId);
+    emitAnalytics(analyticsEvents.privacyAcknowledged('v1'), user.userId);
     return ok({ acknowledged: true });
   } catch {
     return serverError('Failed to record privacy acknowledgement');

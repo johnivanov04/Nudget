@@ -56,6 +56,10 @@ export const envSchema = z.object({
 
   // Optional: Sentry error reporting (server). Unset = disabled.
   SENTRY_DSN: z.string().optional(),
+
+  // Optional: PostHog product analytics (server). Unset = disabled (no-op).
+  POSTHOG_KEY: z.string().optional(),
+  POSTHOG_HOST: z.string().url().optional(), // defaults to US cloud
 });
 
 export type Env = z.infer<typeof envSchema>;

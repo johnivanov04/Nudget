@@ -9,12 +9,14 @@ import { CountryCode, Products } from 'plaid';
 import { getUserFromRequest } from '@/lib/api/auth';
 import { getPlaidClient } from '@/lib/plaid/client';
 import { getEnv } from '@/lib/env';
+import { analyticsEvents, emitAnalytics } from '@/lib/analytics/events';
 import { ok, unauthorized, serverError } from '@/lib/api/responses';
 
 export async function POST(req: NextRequest) {
   const user = await getUserFromRequest(req);
   if (!user) return unauthorized();
 
+  emitAnalytics(analyticsEvents.plaidLinkStarted('ios'), user.userId);
   const { PLAID_WEBHOOK_URL: webhookUrl, PLAID_REDIRECT_URI: redirectUri } = getEnv();
   try {
     const { data } = await getPlaidClient().linkTokenCreate({

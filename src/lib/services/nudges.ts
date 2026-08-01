@@ -70,6 +70,7 @@ export async function planAndRecordNudges(
         riskLevel: nudge.riskLevel,
         copyKey: nudge.copyKey,
       }),
+      userId,
     );
   }
 

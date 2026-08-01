@@ -10,6 +10,7 @@ import { getUserFromRequest } from '@/lib/api/auth';
 import { paycheckScheduleSchema } from '@/lib/api/schemas';
 import { previewNextPaydays } from '@/lib/api/runwayService';
 import { paycheckSchedulesRepo } from '@/lib/db/repositories';
+import { analyticsEvents, emitAnalytics } from '@/lib/analytics/events';
 import { ok, badRequest, unauthorized } from '@/lib/api/responses';
 
 export async function GET(req: NextRequest) {
@@ -60,6 +61,8 @@ export async function POST(req: NextRequest) {
     weekend_rule: body.weekendRule,
     custom_rules: body.semimonthlyDays ? { semimonthlyDays: body.semimonthlyDays } : null,
   });
+
+  emitAnalytics(analyticsEvents.paydayScheduleSaved(body.frequency), user.userId);
 
   return ok({
     schedule: {

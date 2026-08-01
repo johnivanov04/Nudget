@@ -38,14 +38,18 @@ export async function POST(req: NextRequest) {
     free_text: body.freeText ?? null,
   });
 
-  // Privacy-safe analytics for nudge feedback (no free_text, no raw data).
+  // Privacy-safe analytics (no free_text, no raw data).
   if (body.eventType === 'nudge_helpful') {
     emitAnalytics(
       analyticsEvents.nudgeFeedbackSubmitted({
         helpful: (body.rating ?? 0) >= 3,
         rating: body.rating ?? null,
       }),
+      user.userId,
     );
+  } else if (body.eventType === 'saved_fee') {
+    // The key beta success metric.
+    emitAnalytics(analyticsEvents.outcomeReported('saved_fee'), user.userId);
   }
 
   return ok({ id: saved.id, accepted: true, persisted: true }, { status: 201 });
