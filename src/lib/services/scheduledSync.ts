@@ -11,7 +11,7 @@
  * move item syncs onto a durable queue (see webhook TODO).
  */
 import { plaidItemsRepo } from '@/lib/db/repositories';
-import { syncTransactionsForItem } from '@/lib/plaid/sync';
+import { syncTransactionsForItem, HandledItemError } from '@/lib/plaid/sync';
 import { runBillDetection } from '@/lib/services/bills';
 import { recomputeRunwayForUser } from '@/lib/services/runway';
 import { reportError } from '@/lib/observability/report';
@@ -23,7 +23,7 @@ export interface ScheduledSyncResult {
 }
 
 export async function runScheduledSync(): Promise<ScheduledSyncResult> {
-  const items = await plaidItemsRepo.listAllSyncable();
+  const items = await plaidItemsRepo.listAllActive();
   const affectedUsers = new Set<string>();
   let synced = 0;
 
@@ -33,8 +33,11 @@ export async function runScheduledSync(): Promise<ScheduledSyncResult> {
       affectedUsers.add(item.user_id);
       synced += 1;
     } catch (err) {
-      // e.g. an item needing re-auth — status is flagged inside the sync.
-      reportError(err, { scope: 'cron.sync-all.item', userId: item.user_id, itemId: item.id });
+      // A flagged item (re-auth / dead) is expected and already handled — don't
+      // report it. It's now non-active, so the next run skips it.
+      if (!(err instanceof HandledItemError)) {
+        reportError(err, { scope: 'cron.sync-all.item', userId: item.user_id, itemId: item.id });
+      }
     }
   }
 

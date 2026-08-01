@@ -43,12 +43,16 @@ export const plaidItemsRepo = {
     return (data as PlaidItemRow[]) ?? [];
   },
 
-  /** All items that can still be synced (excludes disconnected). For the cron. */
-  async listAllSyncable(): Promise<PlaidItemRow[]> {
+  /**
+   * Healthy items for the scheduled sync — only `active`. Items in
+   * login_required / error are left alone (the user must reconnect/relink),
+   * so the cron doesn't retry broken connections every run.
+   */
+  async listAllActive(): Promise<PlaidItemRow[]> {
     const { data, error } = await getSupabaseAdmin()
       .from('plaid_items')
       .select('*')
-      .neq('status', 'disconnected');
+      .eq('status', 'active');
     if (error) throw error;
     return (data as PlaidItemRow[]) ?? [];
   },

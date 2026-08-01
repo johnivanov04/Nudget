@@ -89,12 +89,21 @@ export async function syncTransactionsForItem(item: PlaidItemRow): Promise<SyncS
   try {
     collected = await collectTransactionSync(getPlaidClient(), accessToken, item.sync_cursor);
   } catch (err) {
-    // The connection needs the user to re-authenticate — flag it so the app can
-    // prompt a reconnect (Link update mode) instead of silently serving stale data.
-    if (isItemLoginRequired(err)) {
+    // Classify Plaid item errors so a broken connection stops being retried (and
+    // stops spamming error reports) instead of failing on every scheduled run.
+    const code = plaidErrorCode(err);
+    if (code && REAUTH_ERROR_CODES.has(code)) {
+      // Needs the user to re-authenticate — flag it so the app prompts a reconnect.
       await plaidItemsRepo.setStatus(item.id, 'login_required');
+      throw new HandledItemError('login_required', err);
     }
-    throw err;
+    if (code && DEAD_ITEM_ERROR_CODES.has(code)) {
+      // Permanently broken (revoked, invalid token, item gone) — mark it so the
+      // cron skips it. The user can disconnect/relink.
+      await plaidItemsRepo.setStatus(item.id, 'error');
+      throw new HandledItemError('error', err);
+    }
+    throw err; // genuinely unexpected — let the caller report it
   }
 
   let skipped = 0;
@@ -141,9 +150,33 @@ export async function syncTransactionsForItem(item: PlaidItemRow): Promise<SyncS
   };
 }
 
-/** True for Plaid's ITEM_LOGIN_REQUIRED — the connection needs re-authentication. */
-function isItemLoginRequired(err: unknown): boolean {
-  const code = (err as { response?: { data?: { error_code?: string } } })?.response?.data
-    ?.error_code;
-  return code === 'ITEM_LOGIN_REQUIRED';
+/**
+ * A Plaid item error we've already handled (flagged the item's status). Callers
+ * should NOT report these to Sentry — they're expected states, not bugs.
+ */
+export class HandledItemError extends Error {
+  constructor(
+    public readonly itemStatus: 'login_required' | 'error',
+    public readonly plaidError?: unknown,
+  ) {
+    super(`Plaid item flagged: ${itemStatus}`);
+    this.name = 'HandledItemError';
+  }
 }
+
+/** The Plaid `error_code`, if this looks like a Plaid API error. */
+function plaidErrorCode(err: unknown): string | undefined {
+  return (err as { response?: { data?: { error_code?: string } } })?.response?.data?.error_code;
+}
+
+/** Errors that mean the user must re-authenticate (a reconnect fixes it). */
+const REAUTH_ERROR_CODES = new Set(['ITEM_LOGIN_REQUIRED', 'PENDING_EXPIRATION']);
+
+/** Errors that mean the connection is permanently broken (relink required). */
+const DEAD_ITEM_ERROR_CODES = new Set([
+  'INVALID_ACCESS_TOKEN',
+  'INVALID_CREDENTIALS',
+  'ITEM_NOT_FOUND',
+  'ITEM_NO_LONGER_SUPPORTED',
+  'ACCESS_NOT_GRANTED',
+]);

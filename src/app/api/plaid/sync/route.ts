@@ -9,7 +9,7 @@ import type { NextRequest } from 'next/server';
 import { getUserFromRequest } from '@/lib/api/auth';
 import { plaidSyncSchema } from '@/lib/api/schemas';
 import { plaidItemsRepo } from '@/lib/db/repositories';
-import { syncTransactionsForItem } from '@/lib/plaid/sync';
+import { syncTransactionsForItem, HandledItemError } from '@/lib/plaid/sync';
 import { runBillDetection } from '@/lib/services/bills';
 import { recomputeRunwayForUser } from '@/lib/services/runway';
 import { planAndRecordNudges } from '@/lib/services/nudges';
@@ -61,9 +61,12 @@ export async function POST(req: NextRequest) {
       try {
         results.push(await syncTransactionsForItem(item));
       } catch (err) {
-        // One bank failing (e.g. it needs re-auth — status is set to
-        // login_required inside the sync) must not abort the others.
-        reportError(err, { scope: 'plaid.sync.item', userId: user.userId, itemId: item.id });
+        // One bank failing must not abort the others. A HandledItemError (re-auth
+        // / dead connection) is expected — status is already flagged, so skip the
+        // Sentry report for it.
+        if (!(err instanceof HandledItemError)) {
+          reportError(err, { scope: 'plaid.sync.item', userId: user.userId, itemId: item.id });
+        }
       }
     }
 
