@@ -9,6 +9,7 @@ struct DashboardView: View {
     @State private var showAccounts = false
     @State private var showBills = false
     @State private var showSettings = false
+    @State private var showExplainer = false
     private let token: String
 
     init(token: String) {
@@ -167,6 +168,9 @@ struct DashboardView: View {
             .frame(maxWidth: .infinity)
         }
         .refreshable { await model.refresh() }
+        .sheet(isPresented: $showExplainer) {
+            CalculationExplainerView(snapshot: s)
+        }
     }
 
     // MARK: - Dashboard sections
@@ -337,6 +341,19 @@ struct DashboardView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            // Trust: let the user see exactly how the number is derived. Hidden in
+            // privacy mode (the breakdown is all amounts).
+            if !privacyMode {
+                Button {
+                    showExplainer = true
+                } label: {
+                    Label("How this is calculated", systemImage: "info.circle")
+                        .font(.footnote.weight(.medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.brand)
             }
         }
         .frame(maxWidth: .infinity)
