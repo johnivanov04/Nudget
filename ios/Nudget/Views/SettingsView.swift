@@ -142,6 +142,9 @@ struct SettingsView: View {
             Link(destination: URL(string: "https://nudget-taupe.vercel.app/privacy")!) {
                 Label("Privacy Policy", systemImage: "hand.raised")
             }
+            Link(destination: URL(string: "https://nudget-taupe.vercel.app/terms")!) {
+                Label("Terms of Service", systemImage: "doc.text")
+            }
             LabeledContent("Privacy", value: "Nudget never stores your bank login")
             Text("Estimates for awareness, not financial advice.")
                 .font(.footnote)
