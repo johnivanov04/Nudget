@@ -21,6 +21,16 @@ enum JWT {
         return exp.timeIntervalSinceNow <= leeway
     }
 
+    /// The token's `sub` claim (the user id), or nil.
+    static func subject(_ token: String) -> String? {
+        let parts = token.split(separator: ".")
+        guard parts.count == 3,
+              let payload = base64urlDecode(String(parts[1])),
+              let json = try? JSONSerialization.jsonObject(with: payload) as? [String: Any]
+        else { return nil }
+        return json["sub"] as? String
+    }
+
     private static func base64urlDecode(_ s: String) -> Data? {
         var b64 = s.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
         while b64.count % 4 != 0 { b64.append("=") }

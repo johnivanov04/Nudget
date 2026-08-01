@@ -18,6 +18,9 @@ packages:
   Sentry:
     url: https://github.com/getsentry/sentry-cocoa
     from: "8.40.0"
+  RevenueCat:
+    url: https://github.com/RevenueCat/purchases-ios-spm.git
+    from: "5.0.0"
 
 targets:
   Nudget:
@@ -29,6 +32,10 @@ targets:
     dependencies:
       - package: LinkKit
       - package: Sentry
+      - package: RevenueCat
+        product: RevenueCat
+      - package: RevenueCat
+        product: RevenueCatUI
       - target: NudgetWidget
         embed: true
     settings:

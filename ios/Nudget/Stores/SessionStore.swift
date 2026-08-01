@@ -44,6 +44,7 @@ final class SessionStore: ObservableObject {
         if let token = Keychain.get(Self.tokenAccount) {
             state = .signedIn(token: token, email: Keychain.get(Self.emailAccount))
             SharedStore.saveAccessToken(token) // mirror for the widget
+            if let uid = JWT.subject(token) { SubscriptionManager.shared.logIn(userId: uid) }
             PushManager.shared.onSignedIn(token: token)
             // Proactively refresh a stale token on launch (while online), so the
             // first real request doesn't 401 and the session stays alive.
@@ -81,6 +82,7 @@ final class SessionStore: ObservableObject {
         SharedStore.clear()
         WidgetCenter.shared.reloadAllTimelines()
         PushManager.shared.onSignedOut()
+        SubscriptionManager.shared.logOut()
         state = .signedOut
     }
 
@@ -100,6 +102,9 @@ final class SessionStore: ObservableObject {
         Keychain.set(email, for: Self.emailAccount)
         SharedStore.saveAccessToken(session.accessToken) // mirror for the widget
         state = .signedIn(token: session.accessToken, email: email)
+        if let uid = JWT.subject(session.accessToken) {
+            SubscriptionManager.shared.logIn(userId: uid)
+        }
         PushManager.shared.onSignedIn(token: session.accessToken)
     }
 }
