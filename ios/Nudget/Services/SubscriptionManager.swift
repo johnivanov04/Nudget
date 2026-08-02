@@ -15,7 +15,7 @@ final class SubscriptionManager: ObservableObject {
     /// products + RevenueCat offering are configured and tested — then flip to
     /// true and ship. When false, the app is fully usable regardless of
     /// subscription (so the SDK can integrate without locking anyone out).
-    static let gatingEnabled = false
+    static let gatingEnabled = true
 
     /// Whether the user currently has premium access (active sub or trial).
     @Published private(set) var isSubscribed = false
